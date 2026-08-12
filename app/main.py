@@ -1396,6 +1396,11 @@ def pedido_pede_mais_headroom(
             "cortada",
             "cortado",
             "corte",
+            "cortar",
+            "cortando",
+            "sem cortar",
+            "nao corte",
+            "não corte",
             "saiu cortada",
             "ficou cortada",
         ]
@@ -1889,12 +1894,13 @@ def detectar_ajustes_visuais_cirurgicos(
             "preserve_photo_framing"
         ] = False
 
-        # Para retratos verticais em moldura horizontal, "menos zoom"
-        # precisa de um modo próprio. O smart_contain mostra mais da
-        # pessoa/objeto sem depender de crop agressivo.
+        # "Menos zoom" é aplicado pelo enquadramento unificado
+        # (ajustar_foto_na_moldura), que preenche sempre a moldura e
+        # trata o afastamento de forma contínua, sem a antiga tira
+        # flutuante sobre fundo borrado do modo smart_contain.
         ajustes[
             "photo_mode"
-        ] = "smart_contain"
+        ] = "cover"
 
         ajustes[
             "photo_zoom"
