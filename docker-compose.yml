@@ -1,0 +1,16 @@
+services:
+  creative-agent:
+    build: .
+    container_name: creative-agent
+    restart: unless-stopped
+
+    mem_limit: 768m
+    cpus: 0.75
+
+    volumes:
+      - ./data:/app/data
+      - ./cache:/app/cache
+      - ./secrets:/app/secrets:ro
+
+    env_file:
+      - .env

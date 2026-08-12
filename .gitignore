@@ -1,0 +1,63 @@
+# Segredos e credenciais
+.env
+.env.*
+secrets/
+*.json
+!package*.json
+
+# Tokens Google / OAuth
+google_token.json
+google.json
+token.json
+credentials.json
+
+# Banco e dados locais
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+cache/
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+logs/
+
+# Arquivos temporários
+tmp/
+temp/
+*.tmp
+
+# Backups locais
+*.bkp
+*.bak
+*.backup
+*_backup.py
+*_bkp.py
+*_old.py
+
+# Sistema / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python
+.venv/
+venv/
+
+# Docker local
+docker-compose.override.yml
+
+# Fontes licenciadas - permanecem somente no servidor
+app/assets/fonts/*.otf
+app/assets/fonts/*.ttf
+
+# Backups locais - Git passa a cuidar do versionamento
+*.bkp*
+*.bak
+*.backup
