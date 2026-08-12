@@ -10,7 +10,7 @@ from pillow_heif import register_heif_opener
 register_heif_opener()
 
 from drive_client import baixar_arquivo
-from openai_client import client
+from openai_client import client, extrair_json
 from photo_manager import gerar_inventario_fotos
 
 
@@ -196,7 +196,7 @@ Regras:
     if resposta.endswith("```"):
         resposta = resposta[:-3]
 
-    return json.loads(resposta.strip())
+    return extrair_json(resposta)
 
 
 def indexar_fotos(limite=5):

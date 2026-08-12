@@ -14,7 +14,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
-from openai_client import client
+from openai_client import client, extrair_json
 
 
 register_heif_opener()
@@ -778,9 +778,7 @@ Os scores devem ficar entre 0 e 10.
             resposta[:-3]
         )
 
-    return json.loads(
-        resposta.strip()
-    )
+    return extrair_json(resposta)
 
 
 # =========================================================
