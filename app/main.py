@@ -2752,6 +2752,26 @@ def interpretar_trocarfoto(
 
 
 
+def sanitizar_nome_foto(
+    nome,
+):
+    """
+    Defesa em profundidade contra path traversal.
+
+    O nome vem do texto cru do usuário e é usado como chave de busca de
+    fotos. Reduzimos ao basename, o que neutraliza tentativas de
+    ``../../`` sem afetar nomes legítimos (nomes de arquivo do Drive não
+    contêm separadores de caminho).
+    """
+
+    if not nome:
+        return nome
+
+    return os.path.basename(
+        str(nome)
+    ).strip()
+
+
 def interpretar_foto_e_pedido(
     conteudo,
 ):
@@ -2781,7 +2801,7 @@ def interpretar_foto_e_pedido(
         if not match:
             return None, None
 
-        foto = match.group(1).strip()
+        foto = sanitizar_nome_foto(match.group(1))
         pedido = match.group(2).strip()
 
         return foto, pedido
@@ -2793,7 +2813,7 @@ def interpretar_foto_e_pedido(
         )
 
         return (
-            esquerda.strip(),
+            sanitizar_nome_foto(esquerda),
             direita.strip(),
         )
 
@@ -2803,12 +2823,12 @@ def interpretar_foto_e_pedido(
 
     if len(partes) == 1:
         return (
-            partes[0].strip(),
+            sanitizar_nome_foto(partes[0]),
             "",
         )
 
     return (
-        partes[0].strip(),
+        sanitizar_nome_foto(partes[0]),
         partes[1].strip(),
     )
 
