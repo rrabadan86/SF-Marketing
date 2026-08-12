@@ -2237,6 +2237,12 @@ def gerar_criativo(
                 ]
             ),
 
+            "photo_note": (
+                visual.get(
+                    "photo_note"
+                )
+            ),
+
             "briefing": briefing,
 
             "photo": foto,

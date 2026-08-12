@@ -1944,6 +1944,11 @@ def render_promo(
         or {}
     )
 
+    # Mensagem opcional devolvida ao usuário quando o pedido de
+    # enquadramento não pôde ser atendido por limite geométrico (ex.:
+    # afastar um retrato numa moldura horizontal que já está cheia).
+    photo_note = None
+
     paleta = definir_paleta(
         direction,
         "SEASONAL_PROMO",
@@ -2359,6 +2364,21 @@ def render_promo(
             zoom_info,
             flush=True,
         )
+
+        # Pedido forte de afastamento que a geometria não permite:
+        # em vez de gerar um resultado sem diferença visível, avisamos
+        # e oferecemos o formato Story (vertical), onde o corpo cabe.
+        if (
+            zoom_out_subject
+            and zoom_info.get("zoom_out_limitado")
+            and float(photo_reframe.get("strength", 0) or 0) >= 0.85
+        ):
+            photo_note = (
+                "ℹ️ Nesta moldura horizontal a foto já está no afastamento "
+                "máximo — afastar mais deixaria barras nas laterais. Para "
+                "mostrar o corpo inteiro sem cortar, posso gerar no formato "
+                "Story (vertical): é só pedir \"gerar em story\"."
+            )
 
         canvas.paste(
             foto,
@@ -2948,7 +2968,7 @@ def render_promo(
     # o canto inferior direito sem texto ou foto.
     # -----------------------------------------------------
 
-    return canvas
+    return canvas, photo_note
 
 
 # =========================================================
@@ -2980,6 +3000,8 @@ def render_seasonal(
             "SEASONAL_CLEAN"
         )
 
+    photo_note = None
+
     if (
         archetype
         == "SEASONAL_PHOTO"
@@ -2995,7 +3017,7 @@ def render_seasonal(
         archetype
         == "SEASONAL_PROMO"
     ):
-        canvas = render_promo(
+        canvas, photo_note = render_promo(
             caminho_foto,
             copy,
             pedido,
@@ -3034,6 +3056,10 @@ def render_seasonal(
     return {
         "image_path": (
             caminho_saida
+        ),
+
+        "photo_note": (
+            photo_note
         ),
 
         "composition": (

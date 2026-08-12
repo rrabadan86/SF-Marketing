@@ -3288,6 +3288,19 @@ def executar_criacao(
                 flush=True,
             )
 
+        # Nota de enquadramento: o renderizador sinaliza quando um pedido
+        # de afastamento não pôde ser atendido por limite geométrico e
+        # sugere o formato Story. Enviada por último para não competir
+        # com a imagem/links.
+        photo_note = resultado.get(
+            "photo_note"
+        )
+        if photo_note:
+            send_message(
+                chat_id,
+                photo_note,
+            )
+
         return codigo
 
     except Exception as e:
