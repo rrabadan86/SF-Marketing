@@ -7,7 +7,14 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
 from dynamic_layout import detectar_tema_wave, pedido_tem_aula_experimental
-from adaptive_layout import medir, hex_rgb, fonte, quebrar, desenhar_multilinha
+from adaptive_layout import (
+    medir,
+    hex_rgb,
+    fonte,
+    quebrar,
+    desenhar_multilinha,
+    limpar_marcadores,
+)
 
 
 WIDTH = 1080
@@ -397,6 +404,7 @@ def desenhar_badge(
     y,
     paleta,
 ):
+    texto = limpar_marcadores(texto)
     font = fonte(
         29,
         "bold",
@@ -468,6 +476,8 @@ def desenhar_cta(
 ):
     if not texto:
         return y
+
+    texto = limpar_marcadores(texto)
 
     tamanho = max(
         29,
@@ -660,6 +670,8 @@ def desenhar_badge_conquista_story(
 ):
     if not texto:
         return y
+
+    texto = limpar_marcadores(texto)
 
     tamanho = 34
 

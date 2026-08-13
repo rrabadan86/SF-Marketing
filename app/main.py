@@ -2363,12 +2363,92 @@ def remocao_visual_preserva_copy(
     return True
 
 
+def detectar_destaque_trecho(
+    instrucao,
+):
+    """
+    Detecta pedidos para destacar (negrito + sublinhado) um trecho:
+    - "dê destaque para a palavra X"
+    - "destaque X"
+    - "sublinhe X"
+    - "coloque X em negrito"
+    - "realce a frase X"
+
+    Retorna o trecho a destacar (ou None). Prioriza trecho entre aspas.
+    """
+    if not instrucao:
+        return None
+
+    texto = re.sub(r"\s+", " ", instrucao).strip()
+
+    gatilho = (
+        r"(?:d[eê]\s+(?:um\s+)?destaque|destaque|destacar|"
+        r"realce|realçar|enfatize|enfatizar|sublinh\w+|"
+        r"em\s+negrito|negrito)"
+    )
+
+    if not re.search(gatilho, texto, flags=re.IGNORECASE):
+        return None
+
+    # 1) Trecho entre aspas tem prioridade.
+    m = re.search(r'["“](.+?)["”]', texto)
+    if m and m.group(1).strip():
+        return m.group(1).strip()
+
+    # 2) Sem aspas: captura após o gatilho até pontuação ou próxima
+    #    instrução ("deixe", "em negrito", "e sublinhe", "aumente"...).
+    padrao = (
+        r"(?:d[eê]\s+(?:um\s+)?destaque|destaque|destacar|"
+        r"realce|realçar|enfatize|enfatizar|sublinh\w+)"
+        r"\s+(?:para\s+)?(?:a\s+|o\s+|as\s+|os\s+)?"
+        r"(?:palavra|palavras|frase|trecho|termo|"
+        r"express[ãa]o)?\s*"
+        r"(.+?)"
+        r"(?=[.!;]|$|,\s|\s+deixe|\s+em\s+negrito|"
+        r"\s+e\s+sublinh|\s+coloque|\s+aumente|\s+porem|\s+porém)"
+    )
+    m = re.search(padrao, texto, flags=re.IGNORECASE)
+    if m:
+        trecho = m.group(1).strip().strip('"“”')
+        # Evita capturar só conectores.
+        if trecho and len(trecho) >= 2:
+            return trecho
+
+    # 3) "coloque/deixe/ponha X em negrito/sublinhado" (gatilho depois).
+    padrao_pos = (
+        r"(?:coloque|colocar|deixe|deixar|ponha|por|pôr)"
+        r"\s+(?:a\s+|o\s+|as\s+|os\s+)?"
+        r"(?:palavra|palavras|frase|trecho|termo)?\s*"
+        r"(.+?)"
+        r"\s+(?:em\s+negrito|em\s+destaque|"
+        r"sublinhad\w*|negrito)"
+    )
+    m = re.search(padrao_pos, texto, flags=re.IGNORECASE)
+    if m:
+        trecho = m.group(1).strip().strip('"“”')
+        if trecho and len(trecho) >= 2:
+            return trecho
+
+    return None
+
+
 def analisar_refazer(
     instrucao,
 ):
     literal = detectar_substituicao_literal(
         instrucao
     )
+
+    # "dê destaque para X" vira uma substituição literal X -> **X**,
+    # reutilizando toda a tubulação de edição de copy.
+    if not literal:
+        destaque = detectar_destaque_trecho(
+            instrucao
+        )
+        if destaque:
+            literal = [
+                (destaque, "**" + destaque + "**")
+            ]
 
     exact_copy = detectar_copy_exata(
         instrucao
