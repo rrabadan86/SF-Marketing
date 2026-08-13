@@ -5016,6 +5016,36 @@ while True:
                 # HISTÓRICO
                 # =============================================
 
+                if (
+                    lower == "/ajuda"
+                    or lower == "/help"
+                    or lower == "/start"
+                    or lower == "/estilos"
+                ):
+                    send_message(
+                        chat_id,
+                        "🤖 CREATIVE AGENT — GUIA RÁPIDO\n\n"
+                        "CRIAR\n"
+                        "/criar <descrição> — feed\n"
+                        "/criarstory <descrição> — story vertical\n"
+                        "/criarfoto <NOME> <descrição> — feed com foto do acervo\n"
+                        "/criarstoryfoto <NOME> <descrição> — story com foto\n\n"
+                        "AJUSTAR\n"
+                        "/refazer <CÓDIGO> <ajuste> — refaz com a mesma foto\n"
+                        "/trocarfoto <CÓDIGO> <critério> — troca só a foto\n"
+                        "/story <CÓDIGO> — converte um feed em story\n"
+                        "/aprovar <CÓDIGO> · /historico\n\n"
+                        "ESTILOS (Dynamic) — inclua no pedido\n"
+                        "Fundo: \"fundo escuro\", \"fundo tiffany\"\n"
+                        "Composição: \"estilo foto em destaque\", \"estilo dividido\"\n\n"
+                        "ENQUADRAMENTO (no /refazer)\n"
+                        "\"mais zoom\" · \"máximo de zoom\" · \"menos zoom\"\n"
+                        "\"sem cortar a cabeça\" · \"corpo inteiro\" (gera story)\n\n"
+                        "O código é o ID que aparece na resposta (ex.: CRIATIVO-0158).",
+                    )
+
+                    continue
+
                 if lower == "/historico":
                     itens = listar_ultimos(
                         10
