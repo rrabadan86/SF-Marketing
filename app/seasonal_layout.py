@@ -17,6 +17,7 @@ from adaptive_layout import (
 )
 
 from face_framing import detectar_foco_rosto
+from photo_style import tratar_foto
 
 
 WIDTH = 1080
@@ -1475,10 +1476,8 @@ def render_photo(
     # uma faixa relevante da imagem.
     # -----------------------------------------------------
 
-    foto_original = Image.open(
-        caminho_foto
-    ).convert(
-        "RGB"
+    foto_original = tratar_foto(
+        Image.open(caminho_foto)
     )
 
     foto_x = 45
@@ -2136,10 +2135,8 @@ def render_promo(
     # -----------------------------------------------------
 
     if caminho_foto:
-        foto_original = Image.open(
-            caminho_foto
-        ).convert(
-            "RGB"
+        foto_original = tratar_foto(
+            Image.open(caminho_foto)
         )
 
         # Centralização horizontal automática no rosto (quando o usuário

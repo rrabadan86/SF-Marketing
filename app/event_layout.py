@@ -11,6 +11,7 @@ from PIL import (
 )
 
 from face_framing import detectar_foco_rosto
+from photo_style import tratar_foto
 
 from adaptive_layout import (
     altura_linhas,
@@ -120,9 +121,9 @@ def preparar_foto(
     caminho,
     centering=(0.5, 0.40),
 ):
-    imagem = Image.open(
-        caminho
-    ).convert("RGB")
+    imagem = tratar_foto(
+        Image.open(caminho)
+    )
 
     # Centraliza no(s) rosto(s) e protege a cabeça; sem rosto, usa o
     # centering padrão do layout como fallback.

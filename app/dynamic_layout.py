@@ -5,6 +5,7 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from face_framing import detectar_foco_rosto
+from photo_style import tratar_foto
 
 
 WIDTH = 1080
@@ -311,10 +312,8 @@ def pedido_tem_aula_experimental(
 def crop_foto(
     caminho_foto,
 ):
-    foto = Image.open(
-        caminho_foto
-    ).convert(
-        "RGB"
+    foto = tratar_foto(
+        Image.open(caminho_foto)
     )
 
     # Centraliza no(s) rosto(s) e protege a cabeça; sem rosto detectado,
@@ -941,11 +940,7 @@ def render_wave(
             cta,
             x,
             cta_y,
-            emphasis=bool(
-                overrides.get(
-                    "cta_emphasis"
-                )
-            ),
+            emphasis=True,
             font_delta=(
                 overrides.get(
                     "cta_font_delta",
@@ -1047,13 +1042,25 @@ def render_bold(
     )
 
     canvas = crop_foto(caminho_foto)
-    canvas = _degrade_inferior(canvas)
+    # Degradê mais firme, garantindo leitura do texto branco mesmo em
+    # fotos claras.
+    canvas = _degrade_inferior(
+        canvas,
+        altura_frac=0.62,
+        alpha_max=250,
+    )
 
     draw = ImageDraw.Draw(canvas)
 
     x = 64
     largura = WIDTH - 128
     y = 890
+
+    # Motivo de marca: traço curto tiffany (accent) acima da headline.
+    draw.rectangle(
+        (x, y - 26, x + 66, y - 19),
+        fill=COLORS[tema["accent"]],
+    )
 
     headline = copy.get("headline") or ""
     y = desenhar_multilinha(
@@ -1097,7 +1104,7 @@ def render_bold(
             cta,
             x,
             min(y + 22, 1290),
-            emphasis=bool(overrides.get("cta_emphasis")),
+            emphasis=True,
             accent=tema["accent"],
         )
 
@@ -1131,7 +1138,7 @@ def render_split(
         tuple(tema["bg"][:3]),
     )
 
-    foto = Image.open(caminho_foto).convert("RGB")
+    foto = tratar_foto(Image.open(caminho_foto))
     foco = detectar_foco_rosto(foto, default=(0.5, 0.40))
     foto_area = ImageOps.fit(
         foto,
