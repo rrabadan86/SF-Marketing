@@ -4,6 +4,8 @@ import tempfile
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from face_framing import detectar_foco_rosto
+
 
 WIDTH = 1080
 HEIGHT = 1350
@@ -315,6 +317,19 @@ def crop_foto(
         "RGB"
     )
 
+    # Centraliza no(s) rosto(s) e protege a cabeça; sem rosto detectado,
+    # usa o ponto fixo padrão.
+    foco = detectar_foco_rosto(
+        foto,
+        default=(0.5, 0.37),
+    )
+
+    print(
+        "Dynamic framing: foco=",
+        foco,
+        flush=True,
+    )
+
     return ImageOps.fit(
         foto,
         (
@@ -324,10 +339,7 @@ def crop_foto(
         method=(
             Image.Resampling.LANCZOS
         ),
-        centering=(
-            0.5,
-            0.37,
-        ),
+        centering=foco,
     )
 
 
@@ -946,6 +958,138 @@ def render_wave(
     return canvas
 
 
+# =============================================================
+# COMPOSIÇÃO DYNAMIC_BOLD — foto full-bleed + degradê + texto
+# =============================================================
+
+def _degrade_inferior(
+    canvas,
+    altura_frac=0.55,
+    cor=(28, 26, 30),
+    alpha_max=236,
+):
+    """
+    Aplica um degradê da cor sólida (base) até transparente (topo) na
+    parte inferior da imagem, para o texto branco ficar legível sobre
+    qualquer foto sem esconder a fotografia.
+    """
+    w, h = canvas.size
+    inicio = int(h * (1 - altura_frac))
+
+    mascara = Image.new("L", (1, h), 0)
+    for y in range(inicio, h):
+        t = (y - inicio) / max(1, (h - inicio))
+        mascara.putpixel((0, y), int(alpha_max * (t ** 1.5)))
+    mascara = mascara.resize((w, h))
+
+    overlay = Image.new("RGB", (w, h), cor)
+    return Image.composite(
+        overlay,
+        canvas.convert("RGB"),
+        mascara,
+    )
+
+
+def detectar_composicao(pedido):
+    """
+    Escolhe a composição do Dynamic pela palavra-chave. Padrão: a onda
+    (DYNAMIC_WAVE), comportamento histórico.
+    """
+    texto = _sem_acentos(pedido)
+
+    if any(
+        termo in texto
+        for termo in [
+            "estilo foto",
+            "foto em destaque",
+            "destaque na foto",
+            "texto sobre a foto",
+            "sem onda",
+            "estilo limpo",
+            "tela cheia",
+            "foto grande",
+            "estilo bold",
+            "estilo revista",
+            "editorial",
+        ]
+    ):
+        return "DYNAMIC_BOLD"
+
+    return "DYNAMIC_WAVE"
+
+
+def render_bold(
+    caminho_foto,
+    copy,
+    pedido,
+    render_overrides=None,
+):
+    overrides = render_overrides or {}
+
+    tema = WAVE_THEMES.get(
+        overrides.get("wave_theme")
+        or detectar_tema_wave(pedido),
+        WAVE_THEMES["coral"],
+    )
+
+    canvas = crop_foto(caminho_foto)
+    canvas = _degrade_inferior(canvas)
+
+    draw = ImageDraw.Draw(canvas)
+
+    x = 64
+    largura = WIDTH - 128
+    y = 890
+
+    headline = copy.get("headline") or ""
+    y = desenhar_multilinha(
+        draw,
+        headline,
+        x,
+        y,
+        largura,
+        58,
+        COLORS["WHITE"],
+        peso="bold",
+        espacamento=2,
+        max_linhas=3,
+    )
+
+    draw.line(
+        (x, y + 14, x + 195, y + 14),
+        fill=COLORS["WHITE"],
+        width=5,
+    )
+    y += 40
+
+    apoio = copy.get("support") or ""
+    y = desenhar_multilinha(
+        draw,
+        apoio,
+        x,
+        y,
+        largura,
+        26,
+        COLORS["WHITE"],
+        peso="regular",
+        espacamento=5,
+        max_linhas=3,
+    )
+
+    cta = copy.get("cta") or ""
+    if cta and not overrides.get("hide_cta"):
+        desenhar_cta(
+            draw,
+            cta,
+            x,
+            min(y + 22, 1290),
+            emphasis=bool(overrides.get("cta_emphasis")),
+            accent=tema["accent"],
+        )
+
+    return canvas
+
+
 def render_dynamic(
     caminho_foto,
     copy,
@@ -958,23 +1102,51 @@ def render_dynamic(
     """
     Renderer Dynamic oficial.
 
-    A família Dynamic utiliza DYNAMIC_WAVE como composição
-    padrão. Mantemos compatibilidade com composition_override,
-    mas qualquer composição desconhecida cai de forma segura
-    no DYNAMIC_WAVE.
+    Duas composições: DYNAMIC_WAVE (onda, padrão) e DYNAMIC_BOLD (foto
+    full-bleed com texto sobre a foto). A escolha vem do override ou da
+    palavra-chave no pedido; composição desconhecida cai na onda.
     """
 
     composition = (
         composition_override
-        or "DYNAMIC_WAVE"
+        or detectar_composicao(pedido)
     )
 
     if composition not in {
         "DYNAMIC_WAVE",
+        "DYNAMIC_BOLD",
     }:
         composition = (
             "DYNAMIC_WAVE"
         )
+
+    if composition == "DYNAMIC_BOLD":
+        canvas = render_bold(
+            caminho_foto,
+            copy,
+            pedido,
+            render_overrides=render_overrides,
+        )
+
+        temp = tempfile.NamedTemporaryFile(
+            suffix=".png",
+            delete=False,
+        )
+        caminho_saida = temp.name
+        temp.close()
+        canvas.save(caminho_saida, "PNG")
+
+        return {
+            "image_path": caminho_saida,
+            "composition": composition,
+            "family": "SLIMFIT_DYNAMIC",
+            "background_style": (
+                background_override
+                or composition
+            ),
+            "width": WIDTH,
+            "height": HEIGHT,
+        }
 
     canvas = render_wave(
         caminho_foto,

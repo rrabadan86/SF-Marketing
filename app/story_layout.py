@@ -5,6 +5,7 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from face_framing import detectar_foco_rosto
+from dynamic_layout import detectar_tema_wave
 
 
 WIDTH = 1080
@@ -261,10 +262,32 @@ def pedido_tem_aula_experimental(
     )
 
 
+# Temas de cor do Story para a família Dynamic (espelham os temas da
+# onda do feed). Texto sempre branco; accent/CTA contrastam com o painel.
+STORY_THEMES = {
+    "coral": {
+        "panel": "CORAL",
+        "accent": "TIFFANY",
+        "cta_fill": "TIFFANY",
+    },
+    "tiffany": {
+        "panel": "TIFFANY",
+        "accent": "CORAL",
+        "cta_fill": "CORAL",
+    },
+    "escuro": {
+        "panel": "CHARCOAL",
+        "accent": "TIFFANY",
+        "cta_fill": "TIFFANY",
+    },
+}
+
+
 def paleta_story(
     family,
     base_layout,
     seasonal_direction=None,
+    tema="coral",
 ):
     campaign_type = (
         seasonal_direction
@@ -331,12 +354,17 @@ def paleta_story(
             "panel_alpha": 238,
         }
 
+    cores_tema = STORY_THEMES.get(
+        tema,
+        STORY_THEMES["coral"],
+    )
+
     return {
         "panel": COLORS[
-            "CORAL"
+            cores_tema["panel"]
         ],
         "accent": COLORS[
-            "TIFFANY"
+            cores_tema["accent"]
         ],
         "headline": COLORS[
             "WHITE"
@@ -345,7 +373,7 @@ def paleta_story(
             "WHITE"
         ],
         "cta_fill": COLORS[
-            "TIFFANY"
+            cores_tema["cta_fill"]
         ],
         "cta_text": COLORS[
             "WHITE"
@@ -933,12 +961,18 @@ def render_story(
         or {}
     )
 
+    tema_story = (
+        overrides.get("wave_theme")
+        or detectar_tema_wave(pedido)
+    )
+
     paleta = paleta_story(
         family,
         base_layout,
         seasonal_direction=(
             seasonal_direction
         ),
+        tema=tema_story,
     )
 
     print(
