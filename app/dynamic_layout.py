@@ -762,7 +762,7 @@ def render_wave(
         )
 
         # Mais respiro superior no bloco textual.
-        y = 928
+        y = 958
 
     else:
         x = 58
@@ -772,7 +772,7 @@ def render_wave(
             - x
         )
 
-        y = 920
+        y = 950
 
     ocultar_badge = bool(
         overrides.get(
