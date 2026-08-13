@@ -2981,6 +2981,25 @@ def extrair_foto_exata_trocarfoto(
 
             return referencia
 
+    # Fallback: o usuário nomeou um ARQUIVO específico do acervo
+    # (ex.: "para a foto IMG_9218.jpg", "IMG_9218.jpg", "usa a
+    # Tezza-6077 (1).jpeg"). Um nome de arquivo com extensão de imagem
+    # é um pedido explícito e deve sobrepor os filtros de seleção —
+    # não é um critério de busca semântica.
+    match_arquivo = re.search(
+        r'([\w\-.]+(?:\s*\(\d+\))?'
+        r'\.(?:jpe?g|png|heic|heif|webp))',
+        texto,
+        flags=re.IGNORECASE,
+    )
+
+    if match_arquivo:
+        return (
+            match_arquivo.group(1)
+            .strip()
+            .strip('"')
+        )
+
     return None
 
 
