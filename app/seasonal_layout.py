@@ -2320,20 +2320,28 @@ def render_promo(
         # o afastamento virava uma tira estreita flutuando sobre um
         # fundo borrado ("montagem"). Agora um único parâmetro de
         # escala preenche sempre a moldura, sem barras nem blur.
-        focus_y_efetivo = photo_focus_y
-
-        if more_headroom:
-            focus_y_efetivo = 0.0
-        elif avoid_head_crop:
-            focus_y_efetivo = min(photo_focus_y, 0.14)
-        elif show_lower_subject:
-            focus_y_efetivo = max(photo_focus_y, 0.30)
-
         safe_focus_override = render_overrides.get(
             "photo_safe_focus_y"
         )
-        if safe_focus_override is not None:
-            focus_y_efetivo = float(safe_focus_override)
+
+        if more_headroom or avoid_head_crop:
+            # "Não cortar a cabeça / testa": ancora no topo absoluto da
+            # foto. Isso VENCE o photo_safe_focus_y — antes o safe focus
+            # (0.12) sobrepunha a proteção da cabeça e ainda cortava a
+            # testa de retratos com a cabeça no topo do quadro.
+            focus_y_efetivo = 0.0
+
+        elif show_lower_subject:
+            focus_y_efetivo = max(photo_focus_y, 0.30)
+
+            if safe_focus_override is not None:
+                focus_y_efetivo = float(safe_focus_override)
+
+        else:
+            focus_y_efetivo = photo_focus_y
+
+            if safe_focus_override is not None:
+                focus_y_efetivo = float(safe_focus_override)
 
         focus_y_efetivo = limitar(
             focus_y_efetivo,
