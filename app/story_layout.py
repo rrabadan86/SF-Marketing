@@ -5,6 +5,7 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from face_framing import detectar_foco_rosto
+from photo_style import tratar_foto
 from dynamic_layout import detectar_tema_wave
 
 
@@ -385,10 +386,8 @@ def paleta_story(
 def criar_base_foto(
     caminho_foto,
 ):
-    original = Image.open(
-        caminho_foto
-    ).convert(
-        "RGB"
+    original = tratar_foto(
+        Image.open(caminho_foto)
     )
 
     # Enquadramento centrado no(s) rosto(s), com a cabeça protegida.
