@@ -171,6 +171,30 @@ def test_zoom_out_limitado_avisa_em_foto_horizontal():
 
 
 # ---------------------------------------------------------------
+# Destaque de trecho (negrito + sublinhado inline)
+# ---------------------------------------------------------------
+
+def test_marcadores_nunca_vazam_no_texto():
+    import adaptive_layout as al
+    assert al.limpar_marcadores("a **b c** d") == "a b c d"
+    # segmentar preserva ordem e marca a ênfase
+    segs = al.segmentar_enfase("a **b** c")
+    assert segs == [("a ", False), ("b", True), (" c", False)]
+
+
+def test_render_com_destaque_nao_quebra_e_sem_asteriscos():
+    caminho = _foto_arquivo()
+    copy = {
+        "headline": "Circuito Slim",
+        "support": "Venha no **sábado às 9h45**. Vagas abertas!",
+        "cta": "Check-in aberto!",
+    }
+    r = dl.render_dynamic(caminho, copy, "post normal", foto={})
+    img = Image.open(r["image_path"])
+    assert img.size == (dl.WIDTH, dl.HEIGHT)
+
+
+# ---------------------------------------------------------------
 # date_utils
 # ---------------------------------------------------------------
 

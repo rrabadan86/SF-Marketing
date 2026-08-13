@@ -19,6 +19,7 @@ from adaptive_layout import (
     fonte,
     quebrar,
     desenhar_multilinha,
+    limpar_marcadores,
 )
 
 from date_utils import extrair_data, extrair_horario, extrair_dia_semana
@@ -74,6 +75,10 @@ def desenhar_multilinha_destaque(
 ):
     if not texto:
         return y
+
+    # Esta função tem sua própria lógica de destaque (última palavra
+    # relevante). Remove marcadores ** para não interferir.
+    texto = limpar_marcadores(texto)
 
     font = fonte(
         tamanho,

@@ -592,6 +592,37 @@ def substituir_case_insensitive(
     )
 
 
+def envolver_enfase(texto, trecho):
+    """
+    Envolve a primeira ocorrência de ``trecho`` (case-insensitive) com os
+    marcadores de ênfase **, PRESERVANDO o texto original do criativo (não
+    troca a caixa). Evita duplo destaque.
+    """
+    texto = texto or ""
+    if not trecho:
+        return texto, False
+
+    match = re.search(
+        re.escape(trecho),
+        texto,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return texto, False
+
+    # Já está entre ** — não duplica.
+    if texto[max(0, match.start() - 2):match.start()] == "**":
+        return texto, False
+
+    encontrado = texto[match.start():match.end()]
+    return (
+        texto[:match.start()]
+        + "**" + encontrado + "**"
+        + texto[match.end():],
+        True,
+    )
+
+
 def aplicar_substituicao_literal(
     copy,
     substituicao,
@@ -622,6 +653,10 @@ def aplicar_substituicao_literal(
     for antigo, novo in pares:
         alterou_algum = False
 
+        # Destaque de trecho: o par é (X, **X**). Envolve o trecho
+        # preservando a caixa do criativo, em vez de trocar por novo.
+        eh_enfase = novo == "**" + antigo + "**"
+
         for campo in (
             "headline",
             "support",
@@ -632,13 +667,19 @@ def aplicar_substituicao_literal(
                 or ""
             )
 
-            valor_novo, alterou = (
-                substituir_case_insensitive(
+            if eh_enfase:
+                valor_novo, alterou = envolver_enfase(
                     valor,
                     antigo,
-                    novo,
                 )
-            )
+            else:
+                valor_novo, alterou = (
+                    substituir_case_insensitive(
+                        valor,
+                        antigo,
+                        novo,
+                    )
+                )
 
             if alterou:
                 copy[campo] = valor_novo

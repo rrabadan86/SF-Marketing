@@ -7,7 +7,14 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
 from seasonal_layout import ajustar_foto_na_moldura
-from adaptive_layout import medir, hex_rgb, fonte, quebrar, desenhar_multilinha
+from adaptive_layout import (
+    medir,
+    hex_rgb,
+    fonte,
+    quebrar,
+    desenhar_multilinha,
+    limpar_marcadores,
+)
 
 
 WIDTH = 1080
@@ -411,6 +418,8 @@ def desenhar_badge(
     y,
     texto,
 ):
+    # CTA/badge não renderiza ênfase inline — remove os marcadores.
+    texto = limpar_marcadores(texto)
     f = fonte(
         25,
         "bold",
@@ -472,6 +481,8 @@ def desenhar_cta(
 ):
     if not texto:
         return y
+
+    texto = limpar_marcadores(texto)
 
     tamanho = max(
         23,
