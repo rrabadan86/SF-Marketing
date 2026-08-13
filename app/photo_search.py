@@ -1,6 +1,7 @@
 import json
 import sqlite3
 import unicodedata
+from contextlib import closing
 
 from openai_client import client, extrair_json
 
@@ -90,26 +91,24 @@ def buscar_fotos(pedido, limite=8):
     minimo_pessoas = criterios.get("minimum_people")
     maximo_pessoas = criterios.get("maximum_people")
 
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
+    with closing(sqlite3.connect(DB_FILE)) as conn:
+        conn.row_factory = sqlite3.Row
 
-    rows = conn.execute("""
-        SELECT
-            drive_file_id,
-            filename,
-            folder,
-            description,
-            tags,
-            orientation,
-            people_count,
-            text_space,
-            quality_score,
-            brand_fit_score
-        FROM photos
-        WHERE indexed = 1
-    """).fetchall()
-
-    conn.close()
+        rows = conn.execute("""
+            SELECT
+                drive_file_id,
+                filename,
+                folder,
+                description,
+                tags,
+                orientation,
+                people_count,
+                text_space,
+                quality_score,
+                brand_fit_score
+            FROM photos
+            WHERE indexed = 1
+        """).fetchall()
 
     resultados = []
 

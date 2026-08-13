@@ -1000,12 +1000,26 @@ def detectar_composicao(pedido):
     if any(
         termo in texto
         for termo in [
+            "dividido",
+            "split",
+            "bloco de cor",
+            "faixa de cor",
+            "meio a meio",
+            "foto em cima",
+            "estilo limpo",
+            "estilo corporativo",
+        ]
+    ):
+        return "DYNAMIC_SPLIT"
+
+    if any(
+        termo in texto
+        for termo in [
             "estilo foto",
             "foto em destaque",
             "destaque na foto",
             "texto sobre a foto",
             "sem onda",
-            "estilo limpo",
             "tela cheia",
             "foto grande",
             "estilo bold",
@@ -1090,6 +1104,104 @@ def render_bold(
     return canvas
 
 
+def render_split(
+    caminho_foto,
+    copy,
+    pedido,
+    render_overrides=None,
+):
+    """
+    Composição de bloco: foto no topo e um bloco de cor sólida (tema) na
+    base com o texto. Visual limpo/corporativo, sem a onda.
+    """
+    overrides = render_overrides or {}
+
+    tema = WAVE_THEMES.get(
+        overrides.get("wave_theme")
+        or detectar_tema_wave(pedido),
+        WAVE_THEMES["coral"],
+    )
+    accent = COLORS[tema["accent"]]
+
+    divisor = 852
+
+    canvas = Image.new(
+        "RGB",
+        (WIDTH, HEIGHT),
+        tuple(tema["bg"][:3]),
+    )
+
+    foto = Image.open(caminho_foto).convert("RGB")
+    foco = detectar_foco_rosto(foto, default=(0.5, 0.40))
+    foto_area = ImageOps.fit(
+        foto,
+        (WIDTH, divisor),
+        method=Image.Resampling.LANCZOS,
+        centering=foco,
+    )
+    canvas.paste(foto_area, (0, 0))
+
+    draw = ImageDraw.Draw(canvas)
+
+    # Faixa de destaque no divisor.
+    draw.rectangle(
+        (0, divisor, WIDTH, divisor + 7),
+        fill=accent,
+    )
+
+    x = 64
+    largura = WIDTH - 128
+    y = divisor + 54
+
+    headline = copy.get("headline") or ""
+    y = desenhar_multilinha(
+        draw,
+        headline,
+        x,
+        y,
+        largura,
+        52,
+        COLORS["WHITE"],
+        peso="bold",
+        espacamento=2,
+        max_linhas=3,
+    )
+
+    draw.line(
+        (x, y + 13, x + 195, y + 13),
+        fill=COLORS["WHITE"],
+        width=5,
+    )
+    y += 38
+
+    apoio = copy.get("support") or ""
+    y = desenhar_multilinha(
+        draw,
+        apoio,
+        x,
+        y,
+        largura,
+        25,
+        COLORS["WHITE"],
+        peso="regular",
+        espacamento=5,
+        max_linhas=2,
+    )
+
+    cta = copy.get("cta") or ""
+    if cta and not overrides.get("hide_cta"):
+        desenhar_cta(
+            draw,
+            cta,
+            x,
+            min(y + 20, 1290),
+            emphasis=True,
+            accent=tema["accent"],
+        )
+
+    return canvas
+
+
 def render_dynamic(
     caminho_foto,
     copy,
@@ -1115,18 +1227,27 @@ def render_dynamic(
     if composition not in {
         "DYNAMIC_WAVE",
         "DYNAMIC_BOLD",
+        "DYNAMIC_SPLIT",
     }:
         composition = (
             "DYNAMIC_WAVE"
         )
 
-    if composition == "DYNAMIC_BOLD":
-        canvas = render_bold(
-            caminho_foto,
-            copy,
-            pedido,
-            render_overrides=render_overrides,
-        )
+    if composition in {"DYNAMIC_BOLD", "DYNAMIC_SPLIT"}:
+        if composition == "DYNAMIC_BOLD":
+            canvas = render_bold(
+                caminho_foto,
+                copy,
+                pedido,
+                render_overrides=render_overrides,
+            )
+        else:
+            canvas = render_split(
+                caminho_foto,
+                copy,
+                pedido,
+                render_overrides=render_overrides,
+            )
 
         temp = tempfile.NamedTemporaryFile(
             suffix=".png",
