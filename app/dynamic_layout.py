@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
+from seasonal_layout import ajustar_foto_na_moldura
 
 
 WIDTH = 1080
@@ -311,35 +312,54 @@ def pedido_tem_aula_experimental(
 
 def crop_foto(
     caminho_foto,
+    render_overrides=None,
 ):
+    overrides = render_overrides or {}
+
     foto = tratar_foto(
         Image.open(caminho_foto)
     )
 
-    # Centraliza no(s) rosto(s) e protege a cabeça; sem rosto detectado,
-    # usa o ponto fixo padrão.
-    foco = detectar_foco_rosto(
+    # Foco: override explícito do usuário vence; senão o rosto detectado.
+    face = detectar_foco_rosto(
         foto,
         default=(0.5, 0.37),
     )
 
+    fx = overrides.get("photo_focus_x")
+    fx = float(fx) if fx is not None else face[0]
+
+    fy = overrides.get("photo_focus_y")
+    fy = float(fy) if fy is not None else face[1]
+
+    # "Sem cortar a cabeça" puxa o foco para o topo.
+    if overrides.get("avoid_head_crop"):
+        fy = min(fy, 0.12)
+
+    # Zoom real (antes ignorado): usa o mesmo motor do Seasonal.
+    zoom = float(
+        overrides.get("photo_zoom", 1.0)
+        or 1.0
+    )
+
+    foto_out, info = ajustar_foto_na_moldura(
+        foto,
+        WIDTH,
+        HEIGHT,
+        scale=zoom,
+        focus_x=fx,
+        focus_y=fy,
+        modo="cover",
+    )
+
     print(
-        "Dynamic framing: foco=",
-        foco,
+        "Dynamic framing:",
+        info,
+        f"focus=({fx:.2f},{fy:.2f})",
         flush=True,
     )
 
-    return ImageOps.fit(
-        foto,
-        (
-            WIDTH,
-            HEIGHT,
-        ),
-        method=(
-            Image.Resampling.LANCZOS
-        ),
-        centering=foco,
-    )
+    return foto_out
 
 
 def pontos_wave(
@@ -733,7 +753,8 @@ def render_wave(
     )
 
     canvas = crop_foto(
-        caminho_foto
+        caminho_foto,
+        overrides,
     )
 
     canvas = desenhar_wave_overlay(
@@ -1041,7 +1062,7 @@ def render_bold(
         WAVE_THEMES["coral"],
     )
 
-    canvas = crop_foto(caminho_foto)
+    canvas = crop_foto(caminho_foto, overrides)
     # Degradê mais firme, garantindo leitura do texto branco mesmo em
     # fotos claras.
     canvas = _degrade_inferior(
@@ -1139,12 +1160,22 @@ def render_split(
     )
 
     foto = tratar_foto(Image.open(caminho_foto))
-    foco = detectar_foco_rosto(foto, default=(0.5, 0.40))
-    foto_area = ImageOps.fit(
+    face = detectar_foco_rosto(foto, default=(0.5, 0.40))
+    fx = overrides.get("photo_focus_x")
+    fx = float(fx) if fx is not None else face[0]
+    fy = overrides.get("photo_focus_y")
+    fy = float(fy) if fy is not None else face[1]
+    if overrides.get("avoid_head_crop"):
+        fy = min(fy, 0.12)
+    zoom = float(overrides.get("photo_zoom", 1.0) or 1.0)
+    foto_area, _ = ajustar_foto_na_moldura(
         foto,
-        (WIDTH, divisor),
-        method=Image.Resampling.LANCZOS,
-        centering=foco,
+        WIDTH,
+        divisor,
+        scale=zoom,
+        focus_x=fx,
+        focus_y=fy,
+        modo="cover",
     )
     canvas.paste(foto_area, (0, 0))
 
