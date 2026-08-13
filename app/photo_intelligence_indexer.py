@@ -11,7 +11,7 @@ from PIL import Image
 from pillow_heif import register_heif_opener
 
 from drive_client import baixar_arquivo
-from openai_client import client
+from openai_client import client, extrair_json
 
 from photo_intelligence import (
     DB_FILE,
@@ -265,9 +265,7 @@ Retorne SOMENTE JSON válido:
     ):
         texto = texto[:-3]
 
-    dados = json.loads(
-        texto.strip()
-    )
+    dados = extrair_json(texto)
 
     return dados.get(
         "images",

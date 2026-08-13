@@ -11,7 +11,7 @@ from drive_client import (
     baixar_arquivo,
 )
 
-from openai_client import client
+from openai_client import client, extrair_json
 
 
 DATA_DIR = "/app/data"
@@ -228,7 +228,7 @@ Use esta estrutura:
 
     resposta = resposta.strip()
 
-    regras = json.loads(resposta)
+    regras = extrair_json(resposta)
 
     regras["source_files"] = [
         documento["nome"]

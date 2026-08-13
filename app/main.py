@@ -1396,6 +1396,11 @@ def pedido_pede_mais_headroom(
             "cortada",
             "cortado",
             "corte",
+            "cortar",
+            "cortando",
+            "sem cortar",
+            "nao corte",
+            "não corte",
             "saiu cortada",
             "ficou cortada",
         ]
@@ -1889,12 +1894,13 @@ def detectar_ajustes_visuais_cirurgicos(
             "preserve_photo_framing"
         ] = False
 
-        # Para retratos verticais em moldura horizontal, "menos zoom"
-        # precisa de um modo próprio. O smart_contain mostra mais da
-        # pessoa/objeto sem depender de crop agressivo.
+        # "Menos zoom" é aplicado pelo enquadramento unificado
+        # (ajustar_foto_na_moldura), que preenche sempre a moldura e
+        # trata o afastamento de forma contínua, sem a antiga tira
+        # flutuante sobre fundo borrado do modo smart_contain.
         ajustes[
             "photo_mode"
-        ] = "smart_contain"
+        ] = "cover"
 
         ajustes[
             "photo_zoom"
@@ -2746,6 +2752,26 @@ def interpretar_trocarfoto(
 
 
 
+def sanitizar_nome_foto(
+    nome,
+):
+    """
+    Defesa em profundidade contra path traversal.
+
+    O nome vem do texto cru do usuário e é usado como chave de busca de
+    fotos. Reduzimos ao basename, o que neutraliza tentativas de
+    ``../../`` sem afetar nomes legítimos (nomes de arquivo do Drive não
+    contêm separadores de caminho).
+    """
+
+    if not nome:
+        return nome
+
+    return os.path.basename(
+        str(nome)
+    ).strip()
+
+
 def interpretar_foto_e_pedido(
     conteudo,
 ):
@@ -2775,7 +2801,7 @@ def interpretar_foto_e_pedido(
         if not match:
             return None, None
 
-        foto = match.group(1).strip()
+        foto = sanitizar_nome_foto(match.group(1))
         pedido = match.group(2).strip()
 
         return foto, pedido
@@ -2787,7 +2813,7 @@ def interpretar_foto_e_pedido(
         )
 
         return (
-            esquerda.strip(),
+            sanitizar_nome_foto(esquerda),
             direita.strip(),
         )
 
@@ -2797,12 +2823,12 @@ def interpretar_foto_e_pedido(
 
     if len(partes) == 1:
         return (
-            partes[0].strip(),
+            sanitizar_nome_foto(partes[0]),
             "",
         )
 
     return (
-        partes[0].strip(),
+        sanitizar_nome_foto(partes[0]),
         partes[1].strip(),
     )
 
@@ -3282,6 +3308,19 @@ def executar_criacao(
                 flush=True,
             )
 
+        # Nota de enquadramento: o renderizador sinaliza quando um pedido
+        # de afastamento não pôde ser atendido por limite geométrico e
+        # sugere o formato Story. Enviada por último para não competir
+        # com a imagem/links.
+        photo_note = resultado.get(
+            "photo_note"
+        )
+        if photo_note:
+            send_message(
+                chat_id,
+                photo_note,
+            )
+
         return codigo
 
     except Exception as e:
@@ -3456,1435 +3495,1444 @@ while True:
                 + 1
             )
 
-            message = update.get(
-                "message"
-            )
-
-            if not message:
-                continue
-
-            chat_id = str(
-                message[
-                    "chat"
-                ][
-                    "id"
-                ]
-            )
-
-            if (
-                chat_id
-                != ALLOWED_CHAT_ID
-            ):
-                continue
-
-            text = normalizar_espacos_comando(
-                message.get(
-                    "text",
-                    "",
+            try:
+                message = update.get(
+                    "message"
                 )
-            )
 
-            if not text:
-                continue
+                if not message:
+                    continue
 
-            lower = text.lower()
-
-            print(
-                "Pedido recebido:",
-                text,
-                flush=True,
-            )
-
-            # =============================================
-            # CRIAR STORY COM FOTO ESPECÍFICA
-            # =============================================
-
-            if (
-                lower == "/criarstoryfoto"
-                or lower.startswith(
-                    "/criarstoryfoto "
+                chat_id = str(
+                    message[
+                        "chat"
+                    ][
+                        "id"
+                    ]
                 )
-                or lower == "/criarfotostory"
-                or lower.startswith(
-                    "/criarfotostory "
+
+                if (
+                    chat_id
+                    != ALLOWED_CHAT_ID
+                ):
+                    continue
+
+                text = normalizar_espacos_comando(
+                    message.get(
+                        "text",
+                        "",
+                    )
                 )
-            ):
-                comando_story_foto = (
-                    "/criarfotostory"
-                    if lower.startswith(
+
+                if not text:
+                    continue
+
+                lower = text.lower()
+
+                print(
+                    "Pedido recebido:",
+                    text,
+                    flush=True,
+                )
+
+                # =============================================
+                # CRIAR STORY COM FOTO ESPECÍFICA
+                # =============================================
+
+                if (
+                    lower == "/criarstoryfoto"
+                    or lower.startswith(
+                        "/criarstoryfoto "
+                    )
+                    or lower == "/criarfotostory"
+                    or lower.startswith(
+                        "/criarfotostory "
+                    )
+                ):
+                    comando_story_foto = (
                         "/criarfotostory"
-                    )
-                    else "/criarstoryfoto"
-                )
-
-                conteudo = normalizar_espacos_comando(
-                    text[
-                        len(
-                            comando_story_foto
-                        ):
-                    ]
-                )
-
-                foto_nome, pedido = (
-                    interpretar_foto_e_pedido(
-                        conteudo
-                    )
-                )
-
-                if (
-                    not foto_nome
-                    or not pedido
-                ):
-                    send_message(
-                        chat_id,
-                        "Use:\n"
-                        '/criarstoryfoto IMG_5882.JPG '
-                        'descreva o story\n'
-                        'ou:\n'
-                        '/criarfotostory IMG_5882.JPG '
-                        'descreva o story\n\n'
-                        'Para nomes com espaços:\n'
-                        '/criarstoryfoto "Tezza-6077 (1).jpeg" '
-                        'descreva o story',
-                    )
-                    continue
-
-                copy_obrigatoria = (
-                    detectar_copy_obrigatoria_criar(
-                        pedido
-                    )
-                )
-
-                copy_override_criar = (
-                    {
-                        "support": copy_obrigatoria
-                    }
-                    if copy_obrigatoria
-                    else None
-                )
-
-                executar_criacao(
-                    chat_id,
-                    pedido_sem_copy_obrigatoria(
-                        pedido
-                    ),
-                    foto_fixa_nome=(
-                        foto_nome
-                    ),
-                    output_format="STORY",
-                    copy_override=(
-                        copy_override_criar
-                    ),
-                    render_overrides=(
-                        detectar_overrides_criacao_visual(
-                            pedido
+                        if lower.startswith(
+                            "/criarfotostory"
                         )
-                    ),
-                )
-
-                continue
-
-            # =============================================
-            # CRIAR COM FOTO ESPECÍFICA
-            # =============================================
-
-            if (
-                lower == "/criarfoto"
-                or lower.startswith(
-                    "/criarfoto "
-                )
-            ):
-                conteudo = normalizar_espacos_comando(
-                    text[
-                        len(
-                            "/criarfoto"
-                        ):
-                    ]
-                )
-
-                foto_nome, pedido = (
-                    interpretar_foto_e_pedido(
-                        conteudo
-                    )
-                )
-
-                if (
-                    not foto_nome
-                    or not pedido
-                ):
-                    send_message(
-                        chat_id,
-                        "Use:\n"
-                        '/criarfoto IMG_5882.JPG '
-                        'descreva o criativo\n\n'
-                        'Para nomes com espaços:\n'
-                        '/criarfoto "Tezza-6077 (1).jpeg" '
-                        'descreva o criativo',
-                    )
-                    continue
-
-                copy_obrigatoria = (
-                    detectar_copy_obrigatoria_criar(
-                        pedido
-                    )
-                )
-
-                copy_override_criar = (
-                    {
-                        "support": copy_obrigatoria
-                    }
-                    if copy_obrigatoria
-                    else None
-                )
-
-                executar_criacao(
-                    chat_id,
-                    pedido_sem_copy_obrigatoria(
-                        pedido
-                    ),
-                    foto_fixa_nome=(
-                        foto_nome
-                    ),
-                    output_format="FEED",
-                    copy_override=(
-                        copy_override_criar
-                    ),
-                    render_overrides=(
-                        detectar_overrides_criacao_visual(
-                            pedido
-                        )
-                    ),
-                )
-
-                continue
-
-            # =============================================
-            # CRIAR STORY
-            # =============================================
-
-            if (
-                lower == "/criarstory"
-                or lower.startswith(
-                    "/criarstory "
-                )
-            ):
-                pedido = normalizar_espacos_comando(
-                    text[
-                        len(
-                            "/criarstory"
-                        ):
-                    ]
-                )
-
-                if not pedido:
-                    send_message(
-                        chat_id,
-                        "Use:\n"
-                        "/criarstory descreva o story que você quer.",
-                    )
-                    continue
-
-                copy_obrigatoria = (
-                    detectar_copy_obrigatoria_criar(
-                        pedido
-                    )
-                )
-
-                copy_override_criar = (
-                    {
-                        "support": copy_obrigatoria
-                    }
-                    if copy_obrigatoria
-                    else None
-                )
-
-                executar_criacao(
-                    chat_id,
-                    pedido_sem_copy_obrigatoria(
-                        pedido
-                    ),
-                    output_format="STORY",
-                    copy_override=(
-                        copy_override_criar
-                    ),
-                )
-
-                continue
-
-            # =============================================
-            # CONVERTER CRIATIVO EXISTENTE PARA STORY
-            # =============================================
-
-            if (
-                lower == "/story"
-                or lower.startswith(
-                    "/story "
-                )
-            ):
-                codigo = (
-                    text[
-                        len(
-                            "/story"
-                        ):
-                    ]
-                    .strip()
-                    .upper()
-                )
-
-                if not codigo:
-                    send_message(
-                        chat_id,
-                        "Use:\n"
-                        "/story CRIATIVO-0094",
-                    )
-                    continue
-
-                item = buscar_criativo(
-                    codigo
-                )
-
-                if not item:
-                    send_message(
-                        chat_id,
-                        "❌  Criativo não encontrado.",
-                    )
-                    continue
-
-                send_message(
-                    chat_id,
-                    f"📱 Convertendo {codigo} para Story "
-                    "1080x1920...\n\n"
-                    "📷 Mesma foto\n"
-                    "✏️ Mesma copy\n"
-                    "🎨 Identidade preservada",
-                )
-
-                executar_criacao(
-                    chat_id,
-                    item.get(
-                        "request"
-                    )
-                    or "",
-                    parent_code=(
-                        codigo
-                    ),
-                    revision_type="STORY",
-                    foto_fixa_id=(
-                        item.get(
-                            "source_photo_id"
-                        )
-                    ),
-                    briefing_fixo=(
-                        item.get(
-                            "briefing"
-                        )
-                    ),
-                    family_fixa=(
-                        item.get(
-                            "family"
-                        )
-                    ),
-                    layout_fixo=(
-                        str(
-                            item.get(
-                                "layout"
-                            )
-                            or ""
-                        ).replace(
-                            "STORY_",
-                            "",
-                            1,
-                        )
-                    ),
-                    background_style_fixo=(
-                        item.get(
-                            "background_style"
-                        )
-                    ),
-                    render_request_fixo=(
-                        item.get(
-                            "request"
-                        )
-                    ),
-                    copy_fixa=(
-                        copy_estruturada_do_item(
-                            item
-                        )
-                    ),
-                    render_overrides=(
-                        render_overrides_do_item(
-                            item
-                        )
-                    ),
-                    output_format="STORY",
-                )
-
-                continue
-
-            # =============================================
-            # CRIAR
-            # =============================================
-
-            if (
-                lower == "/criar"
-                or lower.startswith(
-                    "/criar "
-                )
-            ):
-                pedido = normalizar_espacos_comando(
-                    text[
-                        len(
-                            "/criar"
-                        ):
-                    ]
-                )
-
-                if not pedido:
-                    send_message(
-                        chat_id,
-                        "Use:\n"
-                        "/criar descreva o criativo que você quer.",
+                        else "/criarstoryfoto"
                     )
 
-                    continue
-
-                copy_obrigatoria = (
-                    detectar_copy_obrigatoria_criar(
-                        pedido
-                    )
-                )
-
-                copy_override_criar = None
-
-                if copy_obrigatoria:
-                    copy_override_criar = {
-                        "support": copy_obrigatoria
-                    }
-
-                    print(
-                        "Copy obrigatória detectada no /criar:",
-                        copy_obrigatoria,
-                        flush=True,
-                    )
-
-                executar_criacao(
-                    chat_id,
-                    pedido_sem_copy_obrigatoria(
-                        pedido
-                    ),
-                    copy_override=(
-                        copy_override_criar
-                    ),
-                )
-
-                continue
-
-            # =============================================
-            # APROVAR
-            # =============================================
-
-            if lower.startswith(
-                "/aprovar "
-            ):
-                codigo = (
-                    text[
-                        len(
-                            "/aprovar "
-                        ):
-                    ]
-                    .strip()
-                    .upper()
-                )
-
-                item = buscar_criativo(
-                    codigo
-                )
-
-                if not item:
-                    send_message(
-                        chat_id,
-                        "❌  Criativo não encontrado.",
-                    )
-
-                    continue
-
-                atualizar_status(
-                    codigo,
-                    "APPROVED",
-                )
-
-                send_message(
-                    chat_id,
-                    f"✅  {codigo} aprovado.\n\n"
-                    "📷 A foto entrou no cooldown "
-                    "das próximas 40 gerações normais.\n\n"
-                    f"👨‍🎨 {item.get('family')}\n"
-                    f"🧩 {item.get('layout')}\n"
-                    f"🎨 {item.get('background_style')}",
-                )
-
-                continue
-
-            # =============================================
-            # REFAZER
-            # =============================================
-
-            if lower.startswith(
-                "/refazer"
-            ):
-                (
-                    codigo,
-                    instrucao,
-                ) = interpretar_refazer(
-                    text
-                )
-
-                if not codigo:
-                    send_message(
-                        chat_id,
-                        "Use:\n"
-                        "/refazer CRIATIVO-0037\n\n"
-                        "ou:\n"
-                        "/refazer CRIATIVO-0037 "
-                        "quero outro fundo e "
-                        "headline mais curta",
-                    )
-
-                    continue
-
-                item = buscar_criativo(
-                    codigo
-                )
-
-                if not item:
-                    send_message(
-                        chat_id,
-                        "❌  Criativo não encontrado.",
-                    )
-
-                    continue
-
-                novo_pedido = (
-                    montar_pedido_refazer(
-                        item,
-                        instrucao,
-                    )
-                )
-
-                if instrucao:
-                    revision_type = (
-                        "CUSTOM_REMAKE"
-                    )
-
-                    send_message(
-                        chat_id,
-                        f"🔄 Revisando {codigo}\n\n"
-                        "📷 Mesma foto\n"
-                        f"✏️ Ajuste: {instrucao}",
-                    )
-
-                else:
-                    revision_type = (
-                        "REMAKE"
-                    )
-
-                    send_message(
-                        chat_id,
-                        f"🔄 Refazendo {codigo} "
-                        f"com a mesma foto...",
-                    )
-
-                analise_refazer = analisar_refazer(
-                    instrucao
-                )
-
-                parametros_refazer = {
-                    "briefing_fixo": None,
-                    "family_fixa": None,
-                    "layout_fixo": None,
-                    "background_style_fixo": None,
-                    "literal_replace": None,
-                    "render_request_fixo": None,
-                    "copy_override": None,
-                    "render_overrides": None,
-                    "copy_fixa": None,
-                    "output_format": (
-                        output_format_do_item(
-                            item
-                        )
-                    ),
-                }
-
-                if instrucao:
-                    print(
-                        "Modo /refazer:",
-                        analise_refazer,
-                        flush=True,
-                    )
-                    # -----------------------------------------
-                    # 1. AJUSTE SOMENTE DE TIPOGRAFIA
-                    # -----------------------------------------
-                    if (
-                        analise_refazer[
-                            "typography_adjustment"
+                    conteudo = normalizar_espacos_comando(
+                        text[
+                            len(
+                                comando_story_foto
+                            ):
                         ]
+                    )
+
+                    foto_nome, pedido = (
+                        interpretar_foto_e_pedido(
+                            conteudo
+                        )
+                    )
+
+                    if (
+                        not foto_nome
+                        or not pedido
                     ):
-                        # Texto, foto e estrutura ficam congelados.
-                        parametros_refazer[
-                            "briefing_fixo"
-                        ] = item.get(
-                            "briefing"
+                        send_message(
+                            chat_id,
+                            "Use:\n"
+                            '/criarstoryfoto IMG_5882.JPG '
+                            'descreva o story\n'
+                            'ou:\n'
+                            '/criarfotostory IMG_5882.JPG '
+                            'descreva o story\n\n'
+                            'Para nomes com espaços:\n'
+                            '/criarstoryfoto "Tezza-6077 (1).jpeg" '
+                            'descreva o story',
                         )
+                        continue
 
-                        parametros_refazer[
-                            "copy_fixa"
-                        ] = copy_estruturada_do_item(
-                            item
+                    copy_obrigatoria = (
+                        detectar_copy_obrigatoria_criar(
+                            pedido
                         )
+                    )
 
-                        parametros_refazer[
-                            "family_fixa"
-                        ] = item.get(
-                            "family"
+                    copy_override_criar = (
+                        {
+                            "support": copy_obrigatoria
+                        }
+                        if copy_obrigatoria
+                        else None
+                    )
+
+                    executar_criacao(
+                        chat_id,
+                        pedido_sem_copy_obrigatoria(
+                            pedido
+                        ),
+                        foto_fixa_nome=(
+                            foto_nome
+                        ),
+                        output_format="STORY",
+                        copy_override=(
+                            copy_override_criar
+                        ),
+                        render_overrides=(
+                            detectar_overrides_criacao_visual(
+                                pedido
+                            )
+                        ),
+                    )
+
+                    continue
+
+                # =============================================
+                # CRIAR COM FOTO ESPECÍFICA
+                # =============================================
+
+                if (
+                    lower == "/criarfoto"
+                    or lower.startswith(
+                        "/criarfoto "
+                    )
+                ):
+                    conteudo = normalizar_espacos_comando(
+                        text[
+                            len(
+                                "/criarfoto"
+                            ):
+                        ]
+                    )
+
+                    foto_nome, pedido = (
+                        interpretar_foto_e_pedido(
+                            conteudo
                         )
+                    )
 
-                        parametros_refazer[
-                            "layout_fixo"
-                        ] = item.get(
-                            "layout"
+                    if (
+                        not foto_nome
+                        or not pedido
+                    ):
+                        send_message(
+                            chat_id,
+                            "Use:\n"
+                            '/criarfoto IMG_5882.JPG '
+                            'descreva o criativo\n\n'
+                            'Para nomes com espaços:\n'
+                            '/criarfoto "Tezza-6077 (1).jpeg" '
+                            'descreva o criativo',
                         )
+                        continue
 
-                        parametros_refazer[
-                            "background_style_fixo"
-                        ] = item.get(
-                            "background_style"
+                    copy_obrigatoria = (
+                        detectar_copy_obrigatoria_criar(
+                            pedido
                         )
+                    )
 
-                        # Preserva o contexto visual anterior.
-                        parametros_refazer[
-                            "render_request_fixo"
-                        ] = item.get(
+                    copy_override_criar = (
+                        {
+                            "support": copy_obrigatoria
+                        }
+                        if copy_obrigatoria
+                        else None
+                    )
+
+                    executar_criacao(
+                        chat_id,
+                        pedido_sem_copy_obrigatoria(
+                            pedido
+                        ),
+                        foto_fixa_nome=(
+                            foto_nome
+                        ),
+                        output_format="FEED",
+                        copy_override=(
+                            copy_override_criar
+                        ),
+                        render_overrides=(
+                            detectar_overrides_criacao_visual(
+                                pedido
+                            )
+                        ),
+                    )
+
+                    continue
+
+                # =============================================
+                # CRIAR STORY
+                # =============================================
+
+                if (
+                    lower == "/criarstory"
+                    or lower.startswith(
+                        "/criarstory "
+                    )
+                ):
+                    pedido = normalizar_espacos_comando(
+                        text[
+                            len(
+                                "/criarstory"
+                            ):
+                        ]
+                    )
+
+                    if not pedido:
+                        send_message(
+                            chat_id,
+                            "Use:\n"
+                            "/criarstory descreva o story que você quer.",
+                        )
+                        continue
+
+                    copy_obrigatoria = (
+                        detectar_copy_obrigatoria_criar(
+                            pedido
+                        )
+                    )
+
+                    copy_override_criar = (
+                        {
+                            "support": copy_obrigatoria
+                        }
+                        if copy_obrigatoria
+                        else None
+                    )
+
+                    executar_criacao(
+                        chat_id,
+                        pedido_sem_copy_obrigatoria(
+                            pedido
+                        ),
+                        output_format="STORY",
+                        copy_override=(
+                            copy_override_criar
+                        ),
+                    )
+
+                    continue
+
+                # =============================================
+                # CONVERTER CRIATIVO EXISTENTE PARA STORY
+                # =============================================
+
+                if (
+                    lower == "/story"
+                    or lower.startswith(
+                        "/story "
+                    )
+                ):
+                    codigo = (
+                        text[
+                            len(
+                                "/story"
+                            ):
+                        ]
+                        .strip()
+                        .upper()
+                    )
+
+                    if not codigo:
+                        send_message(
+                            chat_id,
+                            "Use:\n"
+                            "/story CRIATIVO-0094",
+                        )
+                        continue
+
+                    item = buscar_criativo(
+                        codigo
+                    )
+
+                    if not item:
+                        send_message(
+                            chat_id,
+                            "❌  Criativo não encontrado.",
+                        )
+                        continue
+
+                    send_message(
+                        chat_id,
+                        f"📱 Convertendo {codigo} para Story "
+                        "1080x1920...\n\n"
+                        "📷 Mesma foto\n"
+                        "✏️ Mesma copy\n"
+                        "🎨 Identidade preservada",
+                    )
+
+                    executar_criacao(
+                        chat_id,
+                        item.get(
                             "request"
                         )
-
-                        # O banco é a fonte da verdade para os
-                        # ajustes já aplicados. Para criativos antigos,
-                        # ainda aceitamos o request como fallback.
-                        overrides_anteriores = (
+                        or "",
+                        parent_code=(
+                            codigo
+                        ),
+                        revision_type="STORY",
+                        foto_fixa_id=(
+                            item.get(
+                                "source_photo_id"
+                            )
+                        ),
+                        briefing_fixo=(
+                            item.get(
+                                "briefing"
+                            )
+                        ),
+                        family_fixa=(
+                            item.get(
+                                "family"
+                            )
+                        ),
+                        layout_fixo=(
+                            str(
+                                item.get(
+                                    "layout"
+                                )
+                                or ""
+                            ).replace(
+                                "STORY_",
+                                "",
+                                1,
+                            )
+                        ),
+                        background_style_fixo=(
+                            item.get(
+                                "background_style"
+                            )
+                        ),
+                        render_request_fixo=(
+                            item.get(
+                                "request"
+                            )
+                        ),
+                        copy_fixa=(
+                            copy_estruturada_do_item(
+                                item
+                            )
+                        ),
+                        render_overrides=(
                             render_overrides_do_item(
                                 item
                             )
-                        )
+                        ),
+                        output_format="STORY",
+                    )
 
-                        if not overrides_anteriores:
-                            overrides_anteriores = (
-                                somar_ajustes_tipografia(
-                                    item.get(
-                                        "request"
-                                    )
-                                    or ""
-                                )
-                            )
+                    continue
 
-                        ajuste_atual = analise_refazer[
-                            "typography_adjustment"
+                # =============================================
+                # CRIAR
+                # =============================================
+
+                if (
+                    lower == "/criar"
+                    or lower.startswith(
+                        "/criar "
+                    )
+                ):
+                    pedido = normalizar_espacos_comando(
+                        text[
+                            len(
+                                "/criar"
+                            ):
                         ]
+                    )
 
-                        chave_delta = (
-                            ajuste_atual[
-                                "target"
-                            ]
-                            + "_font_delta"
+                    if not pedido:
+                        send_message(
+                            chat_id,
+                            "Use:\n"
+                            "/criar descreva o criativo que você quer.",
                         )
 
-                        overrides_anteriores[
-                            chave_delta
-                        ] = (
-                            int(
-                                overrides_anteriores.get(
-                                    chave_delta,
-                                    0,
-                                )
-                                or 0
-                            )
-                            + int(
-                                ajuste_atual[
-                                    "delta"
-                                ]
-                            )
+                        continue
+
+                    copy_obrigatoria = (
+                        detectar_copy_obrigatoria_criar(
+                            pedido
                         )
+                    )
 
-                        overrides_anteriores[
-                            chave_delta
-                        ] = max(
-                            -8,
-                            min(
-                                8,
-                                overrides_anteriores[
-                                    chave_delta
-                                ],
-                            ),
-                        )
+                    copy_override_criar = None
 
-                        parametros_refazer[
-                            "render_overrides"
-                        ] = overrides_anteriores
-
-                    # -----------------------------------------
-                    # 2. COPY EXATA / "ALTERE A COPY PARA:"
-                    # -----------------------------------------
-                    elif (
-                        analise_refazer[
-                            "exact_copy"
-                        ]
-                    ):
-                        parametros_refazer[
-                            "briefing_fixo"
-                        ] = item.get(
-                            "briefing"
-                        )
-
-                        parametros_refazer[
-                            "copy_fixa"
-                        ] = copy_estruturada_do_item(
-                            item
-                        )
-
-                        parametros_refazer[
-                            "family_fixa"
-                        ] = item.get(
-                            "family"
-                        )
-
-                        parametros_refazer[
-                            "layout_fixo"
-                        ] = item.get(
-                            "layout"
-                        )
-
-                        parametros_refazer[
-                            "background_style_fixo"
-                        ] = item.get(
-                            "background_style"
-                        )
-
-                        parametros_refazer[
-                            "render_request_fixo"
-                        ] = item.get(
-                            "request"
-                        )
-
-                        parametros_refazer[
-                            "copy_override"
-                        ] = {
-                            "support": analise_refazer[
-                                "exact_copy"
-                            ]
+                    if copy_obrigatoria:
+                        copy_override_criar = {
+                            "support": copy_obrigatoria
                         }
 
-                        parametros_refazer[
-                            "render_overrides"
-                        ] = somar_ajustes_tipografia(
-                            item.get(
-                                "request"
-                            )
-                            or ""
+                        print(
+                            "Copy obrigatória detectada no /criar:",
+                            copy_obrigatoria,
+                            flush=True,
                         )
 
-                    # -----------------------------------------
-                    # 2. EDIÇÃO LITERAL / "FAÇA APENAS ISSO"
-                    # -----------------------------------------
-                    elif (
-                        analise_refazer[
-                            "literal_replace"
+                    executar_criacao(
+                        chat_id,
+                        pedido_sem_copy_obrigatoria(
+                            pedido
+                        ),
+                        copy_override=(
+                            copy_override_criar
+                        ),
+                    )
+
+                    continue
+
+                # =============================================
+                # APROVAR
+                # =============================================
+
+                if lower.startswith(
+                    "/aprovar "
+                ):
+                    codigo = (
+                        text[
+                            len(
+                                "/aprovar "
+                            ):
                         ]
-                    ):
-                        parametros_refazer[
-                            "briefing_fixo"
-                        ] = item.get(
-                            "briefing"
+                        .strip()
+                        .upper()
+                    )
+
+                    item = buscar_criativo(
+                        codigo
+                    )
+
+                    if not item:
+                        send_message(
+                            chat_id,
+                            "❌  Criativo não encontrado.",
                         )
 
-                        parametros_refazer[
-                            "copy_fixa"
-                        ] = copy_estruturada_do_item(
-                            item
+                        continue
+
+                    atualizar_status(
+                        codigo,
+                        "APPROVED",
+                    )
+
+                    send_message(
+                        chat_id,
+                        f"✅  {codigo} aprovado.\n\n"
+                        "📷 A foto entrou no cooldown "
+                        "das próximas 40 gerações normais.\n\n"
+                        f"👨‍🎨 {item.get('family')}\n"
+                        f"🧩 {item.get('layout')}\n"
+                        f"🎨 {item.get('background_style')}",
+                    )
+
+                    continue
+
+                # =============================================
+                # REFAZER
+                # =============================================
+
+                if lower.startswith(
+                    "/refazer"
+                ):
+                    (
+                        codigo,
+                        instrucao,
+                    ) = interpretar_refazer(
+                        text
+                    )
+
+                    if not codigo:
+                        send_message(
+                            chat_id,
+                            "Use:\n"
+                            "/refazer CRIATIVO-0037\n\n"
+                            "ou:\n"
+                            "/refazer CRIATIVO-0037 "
+                            "quero outro fundo e "
+                            "headline mais curta",
                         )
 
-                        parametros_refazer[
-                            "family_fixa"
-                        ] = item.get(
-                            "family"
+                        continue
+
+                    item = buscar_criativo(
+                        codigo
+                    )
+
+                    if not item:
+                        send_message(
+                            chat_id,
+                            "❌  Criativo não encontrado.",
                         )
 
-                        parametros_refazer[
-                            "layout_fixo"
-                        ] = item.get(
-                            "layout"
+                        continue
+
+                    novo_pedido = (
+                        montar_pedido_refazer(
+                            item,
+                            instrucao,
+                        )
+                    )
+
+                    if instrucao:
+                        revision_type = (
+                            "CUSTOM_REMAKE"
                         )
 
-                        parametros_refazer[
-                            "background_style_fixo"
-                        ] = item.get(
-                            "background_style"
+                        send_message(
+                            chat_id,
+                            f"🔄 Revisando {codigo}\n\n"
+                            "📷 Mesma foto\n"
+                            f"✏️ Ajuste: {instrucao}",
                         )
 
-                        parametros_refazer[
-                            "literal_replace"
-                        ] = analise_refazer[
-                            "literal_replace"
-                        ]
-
-                        # O renderer recebe o pedido exatamente
-                        # da versão anterior. Assim badge,
-                        # contexto temporal e demais detalhes
-                        # visuais não são reinterpretados.
-                        parametros_refazer[
-                            "render_request_fixo"
-                        ] = item.get(
-                            "request"
+                    else:
+                        revision_type = (
+                            "REMAKE"
                         )
 
-                        parametros_refazer[
-                            "render_overrides"
-                        ] = somar_ajustes_tipografia(
-                            item.get(
-                                "request"
-                            )
-                            or ""
+                        send_message(
+                            chat_id,
+                            f"🔄 Refazendo {codigo} "
+                            f"com a mesma foto...",
                         )
 
-                    # -----------------------------------------
-                    # AJUSTE SOMENTE VISUAL
-                    # -----------------------------------------
-                    elif (
-                        analise_refazer[
-                            "visual_change"
-                        ]
-                        and not analise_refazer[
-                            "copy_change"
-                        ]
-                    ):
-                        # Preserva automaticamente headline,
-                        # apoio e CTA.
-                        parametros_refazer[
-                            "briefing_fixo"
-                        ] = item.get(
-                            "briefing"
-                        )
+                    analise_refazer = analisar_refazer(
+                        instrucao
+                    )
 
-                        parametros_refazer[
-                            "copy_fixa"
-                        ] = copy_estruturada_do_item(
-                            item
-                        )
-
-                        parametros_refazer[
-                            "family_fixa"
-                        ] = item.get(
-                            "family"
-                        )
-
-                        # Alteração cirúrgica visual: mantém a
-                        # composição e o fundo atuais.
-                        parametros_refazer[
-                            "layout_fixo"
-                        ] = item.get(
-                            "layout"
-                        )
-
-                        parametros_refazer[
-                            "background_style_fixo"
-                        ] = item.get(
-                            "background_style"
-                        )
-
-                        # Mantemos o pedido original como contexto.
-                        parametros_refazer[
-                            "render_request_fixo"
-                        ] = item.get(
-                            "request"
-                        )
-
-                        overrides_anteriores = (
-                            render_overrides_do_item(
+                    parametros_refazer = {
+                        "briefing_fixo": None,
+                        "family_fixa": None,
+                        "layout_fixo": None,
+                        "background_style_fixo": None,
+                        "literal_replace": None,
+                        "render_request_fixo": None,
+                        "copy_override": None,
+                        "render_overrides": None,
+                        "copy_fixa": None,
+                        "output_format": (
+                            output_format_do_item(
                                 item
                             )
-                        )
+                        ),
+                    }
 
-                        overrides_novos = (
-                            analise_refazer.get(
-                                "visual_overrides"
-                            )
-                            or {}
+                    if instrucao:
+                        print(
+                            "Modo /refazer:",
+                            analise_refazer,
+                            flush=True,
                         )
-
-                        # ---------------------------------
-                        # NORMALIZAÇÃO DE OVERRIDES DE FOTO
-                        # ---------------------------------
-                        # Um novo pedido explícito de framing deve
-                        # substituir o framing herdado da revisão
-                        # anterior. Antes, flags antigas como
-                        # avoid_head_crop mantinham SAFE_COVER ativo
-                        # mesmo quando o novo pedido dizia
-                        # photo_mode=smart_contain.
-                        framing_novo = any(
-                            chave in overrides_novos
-                            for chave in [
-                                "photo_reframe",
-                                "photo_mode",
-                                "photo_zoom",
-                                "photo_zoom_delta",
-                                "photo_focus_x",
-                                "photo_focus_y",
-                                "photo_safe_focus_y",
-                                "preserve_photo_framing",
+                        # -----------------------------------------
+                        # 1. AJUSTE SOMENTE DE TIPOGRAFIA
+                        # -----------------------------------------
+                        if (
+                            analise_refazer[
+                                "typography_adjustment"
                             ]
-                        )
+                        ):
+                            # Texto, foto e estrutura ficam congelados.
+                            parametros_refazer[
+                                "briefing_fixo"
+                            ] = item.get(
+                                "briefing"
+                            )
 
-                        if framing_novo:
-                            preservar_foto = bool(
-                                overrides_novos.get(
-                                    "preserve_photo_framing"
+                            parametros_refazer[
+                                "copy_fixa"
+                            ] = copy_estruturada_do_item(
+                                item
+                            )
+
+                            parametros_refazer[
+                                "family_fixa"
+                            ] = item.get(
+                                "family"
+                            )
+
+                            parametros_refazer[
+                                "layout_fixo"
+                            ] = item.get(
+                                "layout"
+                            )
+
+                            parametros_refazer[
+                                "background_style_fixo"
+                            ] = item.get(
+                                "background_style"
+                            )
+
+                            # Preserva o contexto visual anterior.
+                            parametros_refazer[
+                                "render_request_fixo"
+                            ] = item.get(
+                                "request"
+                            )
+
+                            # O banco é a fonte da verdade para os
+                            # ajustes já aplicados. Para criativos antigos,
+                            # ainda aceitamos o request como fallback.
+                            overrides_anteriores = (
+                                render_overrides_do_item(
+                                    item
                                 )
                             )
 
-                            if not preservar_foto:
-                                for chave_antiga in [
+                            if not overrides_anteriores:
+                                overrides_anteriores = (
+                                    somar_ajustes_tipografia(
+                                        item.get(
+                                            "request"
+                                        )
+                                        or ""
+                                    )
+                                )
+
+                            ajuste_atual = analise_refazer[
+                                "typography_adjustment"
+                            ]
+
+                            chave_delta = (
+                                ajuste_atual[
+                                    "target"
+                                ]
+                                + "_font_delta"
+                            )
+
+                            overrides_anteriores[
+                                chave_delta
+                            ] = (
+                                int(
+                                    overrides_anteriores.get(
+                                        chave_delta,
+                                        0,
+                                    )
+                                    or 0
+                                )
+                                + int(
+                                    ajuste_atual[
+                                        "delta"
+                                    ]
+                                )
+                            )
+
+                            overrides_anteriores[
+                                chave_delta
+                            ] = max(
+                                -8,
+                                min(
+                                    8,
+                                    overrides_anteriores[
+                                        chave_delta
+                                    ],
+                                ),
+                            )
+
+                            parametros_refazer[
+                                "render_overrides"
+                            ] = overrides_anteriores
+
+                        # -----------------------------------------
+                        # 2. COPY EXATA / "ALTERE A COPY PARA:"
+                        # -----------------------------------------
+                        elif (
+                            analise_refazer[
+                                "exact_copy"
+                            ]
+                        ):
+                            parametros_refazer[
+                                "briefing_fixo"
+                            ] = item.get(
+                                "briefing"
+                            )
+
+                            parametros_refazer[
+                                "copy_fixa"
+                            ] = copy_estruturada_do_item(
+                                item
+                            )
+
+                            parametros_refazer[
+                                "family_fixa"
+                            ] = item.get(
+                                "family"
+                            )
+
+                            parametros_refazer[
+                                "layout_fixo"
+                            ] = item.get(
+                                "layout"
+                            )
+
+                            parametros_refazer[
+                                "background_style_fixo"
+                            ] = item.get(
+                                "background_style"
+                            )
+
+                            parametros_refazer[
+                                "render_request_fixo"
+                            ] = item.get(
+                                "request"
+                            )
+
+                            parametros_refazer[
+                                "copy_override"
+                            ] = {
+                                "support": analise_refazer[
+                                    "exact_copy"
+                                ]
+                            }
+
+                            parametros_refazer[
+                                "render_overrides"
+                            ] = somar_ajustes_tipografia(
+                                item.get(
+                                    "request"
+                                )
+                                or ""
+                            )
+
+                        # -----------------------------------------
+                        # 2. EDIÇÃO LITERAL / "FAÇA APENAS ISSO"
+                        # -----------------------------------------
+                        elif (
+                            analise_refazer[
+                                "literal_replace"
+                            ]
+                        ):
+                            parametros_refazer[
+                                "briefing_fixo"
+                            ] = item.get(
+                                "briefing"
+                            )
+
+                            parametros_refazer[
+                                "copy_fixa"
+                            ] = copy_estruturada_do_item(
+                                item
+                            )
+
+                            parametros_refazer[
+                                "family_fixa"
+                            ] = item.get(
+                                "family"
+                            )
+
+                            parametros_refazer[
+                                "layout_fixo"
+                            ] = item.get(
+                                "layout"
+                            )
+
+                            parametros_refazer[
+                                "background_style_fixo"
+                            ] = item.get(
+                                "background_style"
+                            )
+
+                            parametros_refazer[
+                                "literal_replace"
+                            ] = analise_refazer[
+                                "literal_replace"
+                            ]
+
+                            # O renderer recebe o pedido exatamente
+                            # da versão anterior. Assim badge,
+                            # contexto temporal e demais detalhes
+                            # visuais não são reinterpretados.
+                            parametros_refazer[
+                                "render_request_fixo"
+                            ] = item.get(
+                                "request"
+                            )
+
+                            parametros_refazer[
+                                "render_overrides"
+                            ] = somar_ajustes_tipografia(
+                                item.get(
+                                    "request"
+                                )
+                                or ""
+                            )
+
+                        # -----------------------------------------
+                        # AJUSTE SOMENTE VISUAL
+                        # -----------------------------------------
+                        elif (
+                            analise_refazer[
+                                "visual_change"
+                            ]
+                            and not analise_refazer[
+                                "copy_change"
+                            ]
+                        ):
+                            # Preserva automaticamente headline,
+                            # apoio e CTA.
+                            parametros_refazer[
+                                "briefing_fixo"
+                            ] = item.get(
+                                "briefing"
+                            )
+
+                            parametros_refazer[
+                                "copy_fixa"
+                            ] = copy_estruturada_do_item(
+                                item
+                            )
+
+                            parametros_refazer[
+                                "family_fixa"
+                            ] = item.get(
+                                "family"
+                            )
+
+                            # Alteração cirúrgica visual: mantém a
+                            # composição e o fundo atuais.
+                            parametros_refazer[
+                                "layout_fixo"
+                            ] = item.get(
+                                "layout"
+                            )
+
+                            parametros_refazer[
+                                "background_style_fixo"
+                            ] = item.get(
+                                "background_style"
+                            )
+
+                            # Mantemos o pedido original como contexto.
+                            parametros_refazer[
+                                "render_request_fixo"
+                            ] = item.get(
+                                "request"
+                            )
+
+                            overrides_anteriores = (
+                                render_overrides_do_item(
+                                    item
+                                )
+                            )
+
+                            overrides_novos = (
+                                analise_refazer.get(
+                                    "visual_overrides"
+                                )
+                                or {}
+                            )
+
+                            # ---------------------------------
+                            # NORMALIZAÇÃO DE OVERRIDES DE FOTO
+                            # ---------------------------------
+                            # Um novo pedido explícito de framing deve
+                            # substituir o framing herdado da revisão
+                            # anterior. Antes, flags antigas como
+                            # avoid_head_crop mantinham SAFE_COVER ativo
+                            # mesmo quando o novo pedido dizia
+                            # photo_mode=smart_contain.
+                            framing_novo = any(
+                                chave in overrides_novos
+                                for chave in [
+                                    "photo_reframe",
                                     "photo_mode",
                                     "photo_zoom",
                                     "photo_zoom_delta",
                                     "photo_focus_x",
                                     "photo_focus_y",
                                     "photo_safe_focus_y",
-                                    "photo_zoom_focus_x",
-                                    "photo_zoom_focus_y",
-                                    "avoid_head_crop",
-                                    "photo_reframe",
                                     "preserve_photo_framing",
-                                ]:
-                                    overrides_anteriores.pop(
-                                        chave_antiga,
-                                        None,
+                                ]
+                            )
+
+                            if framing_novo:
+                                preservar_foto = bool(
+                                    overrides_novos.get(
+                                        "preserve_photo_framing"
                                     )
-
-                        # Zoom é relativo entre revisões. Se a versão
-                        # anterior já estava em 0.88 e o usuário pede
-                        # "um pouco menos", aplicamos novo delta sobre
-                        # 0.88 em vez de resetar para um valor absoluto.
-                        zoom_delta_novo = overrides_novos.get(
-                            "photo_zoom_delta"
-                        )
-
-                        if zoom_delta_novo is not None:
-                            zoom_base = float(
-                                render_overrides_do_item(
-                                    item
-                                ).get(
-                                    "photo_zoom",
-                                    1.0,
                                 )
-                                or 1.0
-                            )
 
-                            zoom_calculado = max(
-                                0.82,
-                                min(
-                                    1.20,
-                                    zoom_base
-                                    + float(
-                                        zoom_delta_novo
-                                    ),
-                                ),
-                            )
-
-                            overrides_novos[
-                                "photo_zoom"
-                            ] = round(
-                                zoom_calculado,
-                                3,
-                            )
-
-                        for chave, valor in (
-                            overrides_novos.items()
-                        ):
-                            if chave == "photo_zoom_delta":
-                                continue
-
-                            if (
-                                chave.endswith(
-                                    "_font_delta"
-                                )
-                                and chave
-                                in overrides_anteriores
-                            ):
-                                overrides_anteriores[
-                                    chave
-                                ] = max(
-                                    -8,
-                                    min(
-                                        8,
-                                        int(
-                                            overrides_anteriores.get(
-                                                chave,
-                                                0,
-                                            )
-                                            or 0
+                                if not preservar_foto:
+                                    for chave_antiga in [
+                                        "photo_mode",
+                                        "photo_zoom",
+                                        "photo_zoom_delta",
+                                        "photo_focus_x",
+                                        "photo_focus_y",
+                                        "photo_safe_focus_y",
+                                        "photo_zoom_focus_x",
+                                        "photo_zoom_focus_y",
+                                        "avoid_head_crop",
+                                        "photo_reframe",
+                                        "preserve_photo_framing",
+                                    ]:
+                                        overrides_anteriores.pop(
+                                            chave_antiga,
+                                            None,
                                         )
-                                        + int(
-                                            valor
+
+                            # Zoom é relativo entre revisões. Se a versão
+                            # anterior já estava em 0.88 e o usuário pede
+                            # "um pouco menos", aplicamos novo delta sobre
+                            # 0.88 em vez de resetar para um valor absoluto.
+                            zoom_delta_novo = overrides_novos.get(
+                                "photo_zoom_delta"
+                            )
+
+                            if zoom_delta_novo is not None:
+                                zoom_base = float(
+                                    render_overrides_do_item(
+                                        item
+                                    ).get(
+                                        "photo_zoom",
+                                        1.0,
+                                    )
+                                    or 1.0
+                                )
+
+                                zoom_calculado = max(
+                                    0.82,
+                                    min(
+                                        1.20,
+                                        zoom_base
+                                        + float(
+                                            zoom_delta_novo
                                         ),
                                     ),
                                 )
-                            else:
-                                overrides_anteriores[
-                                    chave
-                                ] = valor
 
-                        if overrides_novos.get(
-                            "preserve_photo_framing"
-                        ):
-                            overrides_anteriores[
+                                overrides_novos[
+                                    "photo_zoom"
+                                ] = round(
+                                    zoom_calculado,
+                                    3,
+                                )
+
+                            for chave, valor in (
+                                overrides_novos.items()
+                            ):
+                                if chave == "photo_zoom_delta":
+                                    continue
+
+                                if (
+                                    chave.endswith(
+                                        "_font_delta"
+                                    )
+                                    and chave
+                                    in overrides_anteriores
+                                ):
+                                    overrides_anteriores[
+                                        chave
+                                    ] = max(
+                                        -8,
+                                        min(
+                                            8,
+                                            int(
+                                                overrides_anteriores.get(
+                                                    chave,
+                                                    0,
+                                                )
+                                                or 0
+                                            )
+                                            + int(
+                                                valor
+                                            ),
+                                        ),
+                                    )
+                                else:
+                                    overrides_anteriores[
+                                        chave
+                                    ] = valor
+
+                            if overrides_novos.get(
                                 "preserve_photo_framing"
-                            ] = True
+                            ):
+                                overrides_anteriores[
+                                    "preserve_photo_framing"
+                                ] = True
 
-                        parametros_refazer[
-                            "render_overrides"
-                        ] = overrides_anteriores
+                            parametros_refazer[
+                                "render_overrides"
+                            ] = overrides_anteriores
 
-                    # -----------------------------------------
-                    # 3. AJUSTE SOMENTE DE COPY
-                    # -----------------------------------------
-                    elif (
-                        analise_refazer[
-                            "copy_change"
-                        ]
-                        and not analise_refazer[
-                            "visual_change"
-                        ]
-                    ):
-                        # Mantém estrutura visual; a copy pode
-                        # ser recriada conforme a instrução.
-                        parametros_refazer[
-                            "family_fixa"
-                        ] = item.get(
-                            "family"
-                        )
+                        # -----------------------------------------
+                        # 3. AJUSTE SOMENTE DE COPY
+                        # -----------------------------------------
+                        elif (
+                            analise_refazer[
+                                "copy_change"
+                            ]
+                            and not analise_refazer[
+                                "visual_change"
+                            ]
+                        ):
+                            # Mantém estrutura visual; a copy pode
+                            # ser recriada conforme a instrução.
+                            parametros_refazer[
+                                "family_fixa"
+                            ] = item.get(
+                                "family"
+                            )
 
-                        parametros_refazer[
-                            "layout_fixo"
-                        ] = item.get(
-                            "layout"
-                        )
+                            parametros_refazer[
+                                "layout_fixo"
+                            ] = item.get(
+                                "layout"
+                            )
 
-                        parametros_refazer[
-                            "background_style_fixo"
-                        ] = item.get(
-                            "background_style"
-                        )
+                            parametros_refazer[
+                                "background_style_fixo"
+                            ] = item.get(
+                                "background_style"
+                            )
 
-                    # -----------------------------------------
-                    # 4. MODO ESTRITO NÃO INTERPRETADO
-                    # -----------------------------------------
-                    elif analise_refazer[
-                        "strict_only"
-                    ]:
-                        # Se o usuário pediu "não altere mais
-                        # nada" mas não conseguimos identificar
-                        # com segurança uma edição literal,
-                        # NÃO regeneramos o criativo inteiro.
+                        # -----------------------------------------
+                        # 4. MODO ESTRITO NÃO INTERPRETADO
+                        # -----------------------------------------
+                        elif analise_refazer[
+                            "strict_only"
+                        ]:
+                            # Se o usuário pediu "não altere mais
+                            # nada" mas não conseguimos identificar
+                            # com segurança uma edição literal,
+                            # NÃO regeneramos o criativo inteiro.
+                            send_message(
+                                chat_id,
+                                "⚠️ Entendi que você quer uma "
+                                "alteração cirúrgica, mas não "
+                                "consegui identificar com segurança "
+                                "o trecho exato a substituir.\n\n"
+                                "Use, por exemplo:\n"
+                                '/refazer '
+                                + codigo
+                                + ' substitua apenas a frase '
+                                '"texto atual" por "texto novo".'
+                            )
+
+                            continue
+
+                    executar_criacao(
+                        chat_id,
+                        novo_pedido,
+                        parent_code=codigo,
+                        revision_type=(
+                            revision_type
+                        ),
+                        foto_fixa_id=(
+                            item[
+                                "source_photo_id"
+                            ]
+                        ),
+                        briefing_fixo=(
+                            parametros_refazer[
+                                "briefing_fixo"
+                            ]
+                        ),
+                        family_fixa=(
+                            parametros_refazer[
+                                "family_fixa"
+                            ]
+                        ),
+                        layout_fixo=(
+                            parametros_refazer[
+                                "layout_fixo"
+                            ]
+                        ),
+                        background_style_fixo=(
+                            parametros_refazer[
+                                "background_style_fixo"
+                            ]
+                        ),
+                        literal_replace=(
+                            parametros_refazer[
+                                "literal_replace"
+                            ]
+                        ),
+                        render_request_fixo=(
+                            parametros_refazer[
+                                "render_request_fixo"
+                            ]
+                        ),
+                        copy_override=(
+                            parametros_refazer[
+                                "copy_override"
+                            ]
+                        ),
+                        render_overrides=(
+                            parametros_refazer[
+                                "render_overrides"
+                            ]
+                        ),
+                        copy_fixa=(
+                            parametros_refazer[
+                                "copy_fixa"
+                            ]
+                        ),
+                        output_format=(
+                            parametros_refazer[
+                                "output_format"
+                            ]
+                        ),
+                    )
+
+                    continue
+
+                # =============================================
+                # TROCAR FOTO
+                # =============================================
+
+                if (
+                    lower == "/trocarfoto"
+                    or lower.startswith(
+                        "/trocarfoto "
+                    )
+                ):
+                    (
+                        codigo,
+                        instrucao_foto,
+                    ) = interpretar_trocarfoto(
+                        text
+                    )
+
+                    if not codigo:
                         send_message(
                             chat_id,
-                            "⚠️ Entendi que você quer uma "
-                            "alteração cirúrgica, mas não "
-                            "consegui identificar com segurança "
-                            "o trecho exato a substituir.\n\n"
-                            "Use, por exemplo:\n"
-                            '/refazer '
-                            + codigo
-                            + ' substitua apenas a frase '
-                            '"texto atual" por "texto novo".'
+                            "Use:\n"
+                            "/trocarfoto CRIATIVO-0086\n\n"
+                            "ou:\n"
+                            "/trocarfoto CRIATIVO-0086 "
+                            "procure uma foto com várias mulheres "
+                            "de amarelo",
                         )
 
                         continue
 
-                executar_criacao(
-                    chat_id,
-                    novo_pedido,
-                    parent_code=codigo,
-                    revision_type=(
-                        revision_type
-                    ),
-                    foto_fixa_id=(
-                        item[
-                            "source_photo_id"
-                        ]
-                    ),
-                    briefing_fixo=(
-                        parametros_refazer[
-                            "briefing_fixo"
-                        ]
-                    ),
-                    family_fixa=(
-                        parametros_refazer[
-                            "family_fixa"
-                        ]
-                    ),
-                    layout_fixo=(
-                        parametros_refazer[
-                            "layout_fixo"
-                        ]
-                    ),
-                    background_style_fixo=(
-                        parametros_refazer[
-                            "background_style_fixo"
-                        ]
-                    ),
-                    literal_replace=(
-                        parametros_refazer[
-                            "literal_replace"
-                        ]
-                    ),
-                    render_request_fixo=(
-                        parametros_refazer[
-                            "render_request_fixo"
-                        ]
-                    ),
-                    copy_override=(
-                        parametros_refazer[
-                            "copy_override"
-                        ]
-                    ),
-                    render_overrides=(
-                        parametros_refazer[
-                            "render_overrides"
-                        ]
-                    ),
-                    copy_fixa=(
-                        parametros_refazer[
-                            "copy_fixa"
-                        ]
-                    ),
-                    output_format=(
-                        parametros_refazer[
-                            "output_format"
-                        ]
-                    ),
-                )
-
-                continue
-
-            # =============================================
-            # TROCAR FOTO
-            # =============================================
-
-            if (
-                lower == "/trocarfoto"
-                or lower.startswith(
-                    "/trocarfoto "
-                )
-            ):
-                (
-                    codigo,
-                    instrucao_foto,
-                ) = interpretar_trocarfoto(
-                    text
-                )
-
-                if not codigo:
-                    send_message(
-                        chat_id,
-                        "Use:\n"
-                        "/trocarfoto CRIATIVO-0086\n\n"
-                        "ou:\n"
-                        "/trocarfoto CRIATIVO-0086 "
-                        "procure uma foto com várias mulheres "
-                        "de amarelo",
+                    item = buscar_criativo(
+                        codigo
                     )
 
-                    continue
+                    if not item:
+                        send_message(
+                            chat_id,
+                            "❌  Criativo não encontrado.",
+                        )
 
-                item = buscar_criativo(
-                    codigo
-                )
+                        continue
 
-                if not item:
-                    send_message(
-                        chat_id,
-                        "❌  Criativo não encontrado.",
+                    copy_anterior = (
+                        copy_estruturada_do_item(
+                            item
+                        )
                     )
 
-                    continue
-
-                copy_anterior = (
-                    copy_estruturada_do_item(
-                        item
-                    )
-                )
-
-                overrides_anteriores = (
-                    render_overrides_do_item(
-                        item
-                    )
-                )
-
-                foto_exata = (
-                    extrair_foto_exata_trocarfoto(
-                        instrucao_foto
-                    )
-                )
-
-                if foto_exata:
-                    criterio = (
-                        "usar exatamente a foto "
-                        + foto_exata
+                    overrides_anteriores = (
+                        render_overrides_do_item(
+                            item
+                        )
                     )
 
-                    mensagem_criterio = (
-                        "\n📌 Foto específica: "
-                        + foto_exata
+                    foto_exata = (
+                        extrair_foto_exata_trocarfoto(
+                            instrucao_foto
+                        )
                     )
 
-                    pedido_selecao_foto = None
+                    if foto_exata:
+                        criterio = (
+                            "usar exatamente a foto "
+                            + foto_exata
+                        )
 
-                elif instrucao_foto:
-                    criterio = (
-                        instrucao_foto
-                    )
+                        mensagem_criterio = (
+                            "\n📌 Foto específica: "
+                            + foto_exata
+                        )
 
-                    mensagem_criterio = (
-                        "\n🎯 Critério da nova foto: "
-                        + criterio
-                    )
+                        pedido_selecao_foto = None
 
-                    pedido_selecao_foto = (
-                        (
+                    elif instrucao_foto:
+                        criterio = (
+                            instrucao_foto
+                        )
+
+                        mensagem_criterio = (
+                            "\n🎯 Critério da nova foto: "
+                            + criterio
+                        )
+
+                        pedido_selecao_foto = (
+                            (
+                                item.get(
+                                    "request"
+                                )
+                                or ""
+                            )
+                            + "\n\n"
+                            + "INSTRUÇÃO EXCLUSIVA PARA A NOVA FOTO:\n"
+                            + criterio
+                            + "\n\n"
+                            + "Use esta instrução somente para "
+                            + "selecionar a fotografia. Não altere "
+                            + "copy, layout, cores ou composição."
+                        )
+
+                    else:
+                        mensagem_criterio = ""
+                        pedido_selecao_foto = (
                             item.get(
                                 "request"
                             )
                             or ""
                         )
-                        + "\n\n"
-                        + "INSTRUÇÃO EXCLUSIVA PARA A NOVA FOTO:\n"
-                        + criterio
-                        + "\n\n"
-                        + "Use esta instrução somente para "
-                        + "selecionar a fotografia. Não altere "
-                        + "copy, layout, cores ou composição."
-                    )
 
-                else:
-                    mensagem_criterio = ""
-                    pedido_selecao_foto = (
-                        item.get(
-                            "request"
-                        )
-                        or ""
-                    )
-
-                send_message(
-                    chat_id,
-                    f"🖼 Trocando a foto de {codigo}...\n\n"
-                    "🔒 Serão mantidos:\n"
-                    f"• família: {item.get('family')}\n"
-                    f"• composição: {item.get('layout')}\n"
-                    f"• fundo: {item.get('background_style')}\n"
-                    "• headline\n"
-                    "• texto de apoio\n"
-                    "• CTA\n"
-                    "• ajustes de fonte\n"
-                    f"{mensagem_criterio}\n\n"
-                    "Apenas a fotografia será substituída.",
-                )
-
-                executar_criacao(
-                    chat_id,
-
-                    item.get(
-                        "request"
-                    )
-                    or "",
-
-                    parent_code=codigo,
-
-                    revision_type=(
-                        "NEW_PHOTO"
-                    ),
-
-                    excluir_foto_id=(
-                        None
-                        if foto_exata
-                        else item[
-                            "source_photo_id"
-                        ]
-                    ),
-
-                    foto_fixa_nome=(
-                        foto_exata
-                    ),
-
-                    briefing_fixo=(
-                        item[
-                            "briefing"
-                        ]
-                    ),
-
-                    family_fixa=(
-                        item[
-                            "family"
-                        ]
-                    ),
-
-                    layout_fixo=(
-                        item[
-                            "layout"
-                        ]
-                    ),
-
-                    background_style_fixo=(
-                        item[
-                            "background_style"
-                        ]
-                    ),
-
-                    # Mantém o contexto visual original.
-                    render_request_fixo=(
-                        item.get(
-                            "request"
-                        )
-                        or ""
-                    ),
-
-                    # Mantém a copy efetivamente renderizada.
-                    copy_fixa=(
-                        copy_anterior
-                    ),
-
-                    # Mantém ajustes tipográficos anteriores.
-                    render_overrides=(
-                        overrides_anteriores
-                    ),
-
-                    # Só esta instrução influencia a busca.
-                    photo_selection_request=(
-                        pedido_selecao_foto
-                    ),
-
-                    output_format=(
-                        output_format_do_item(
-                            item
-                        )
-                    ),
-                )
-
-                continue
-
-            # =============================================
-            # HISTÓRICO
-            # =============================================
-
-            if lower == "/historico":
-                itens = listar_ultimos(
-                    10
-                )
-
-                if not itens:
                     send_message(
                         chat_id,
-                        "Nenhum criativo registrado.",
+                        f"🖼 Trocando a foto de {codigo}...\n\n"
+                        "🔒 Serão mantidos:\n"
+                        f"• família: {item.get('family')}\n"
+                        f"• composição: {item.get('layout')}\n"
+                        f"• fundo: {item.get('background_style')}\n"
+                        "• headline\n"
+                        "• texto de apoio\n"
+                        "• CTA\n"
+                        "• ajustes de fonte\n"
+                        f"{mensagem_criterio}\n\n"
+                        "Apenas a fotografia será substituída.",
+                    )
+
+                    executar_criacao(
+                        chat_id,
+
+                        item.get(
+                            "request"
+                        )
+                        or "",
+
+                        parent_code=codigo,
+
+                        revision_type=(
+                            "NEW_PHOTO"
+                        ),
+
+                        excluir_foto_id=(
+                            None
+                            if foto_exata
+                            else item[
+                                "source_photo_id"
+                            ]
+                        ),
+
+                        foto_fixa_nome=(
+                            foto_exata
+                        ),
+
+                        briefing_fixo=(
+                            item[
+                                "briefing"
+                            ]
+                        ),
+
+                        family_fixa=(
+                            item[
+                                "family"
+                            ]
+                        ),
+
+                        layout_fixo=(
+                            item[
+                                "layout"
+                            ]
+                        ),
+
+                        background_style_fixo=(
+                            item[
+                                "background_style"
+                            ]
+                        ),
+
+                        # Mantém o contexto visual original.
+                        render_request_fixo=(
+                            item.get(
+                                "request"
+                            )
+                            or ""
+                        ),
+
+                        # Mantém a copy efetivamente renderizada.
+                        copy_fixa=(
+                            copy_anterior
+                        ),
+
+                        # Mantém ajustes tipográficos anteriores.
+                        render_overrides=(
+                            overrides_anteriores
+                        ),
+
+                        # Só esta instrução influencia a busca.
+                        photo_selection_request=(
+                            pedido_selecao_foto
+                        ),
+
+                        output_format=(
+                            output_format_do_item(
+                                item
+                            )
+                        ),
                     )
 
                     continue
 
-                linhas = [
-                    "📚 ÚLTIMOS CRIATIVOS",
-                    "",
-                ]
+                # =============================================
+                # HISTÓRICO
+                # =============================================
 
-                for item in itens:
-                    linhas.append(
-                        f"{item['creative_code']} "
-                        f"| {item['status']}"
+                if lower == "/historico":
+                    itens = listar_ultimos(
+                        10
                     )
 
-                    linhas.append(
-                        f"👨‍🎨 "
-                        f"{item.get('family')}"
-                    )
-
-                    linhas.append(
-                        f"🧩 "
-                        f"{item.get('layout')}"
-                    )
-
-                    linhas.append(
-                        f"🎨 "
-                        f"{item.get('background_style')}"
-                    )
-
-                    linhas.append(
-                        f"📷 "
-                        f"{item.get('source_photo_name')}"
-                    )
-
-                    if item.get(
-                        "parent_code"
-                    ):
-                        linhas.append(
-                            f"↳ origem: "
-                            f"{item['parent_code']}"
+                    if not itens:
+                        send_message(
+                            chat_id,
+                            "Nenhum criativo registrado.",
                         )
 
-                    linhas.append(
-                        ""
+                        continue
+
+                    linhas = [
+                        "📚 ÚLTIMOS CRIATIVOS",
+                        "",
+                    ]
+
+                    for item in itens:
+                        linhas.append(
+                            f"{item['creative_code']} "
+                            f"| {item['status']}"
+                        )
+
+                        linhas.append(
+                            f"👨‍🎨 "
+                            f"{item.get('family')}"
+                        )
+
+                        linhas.append(
+                            f"🧩 "
+                            f"{item.get('layout')}"
+                        )
+
+                        linhas.append(
+                            f"🎨 "
+                            f"{item.get('background_style')}"
+                        )
+
+                        linhas.append(
+                            f"📷 "
+                            f"{item.get('source_photo_name')}"
+                        )
+
+                        if item.get(
+                            "parent_code"
+                        ):
+                            linhas.append(
+                                f"↳ origem: "
+                                f"{item['parent_code']}"
+                            )
+
+                        linhas.append(
+                            ""
+                        )
+
+                    send_message(
+                        chat_id,
+                        "\n".join(
+                            linhas
+                        ),
                     )
+
+                    continue
+
+                # =============================================
+                # TEXTO NORMAL
+                # =============================================
 
                 send_message(
                     chat_id,
-                    "\n".join(
-                        linhas
-                    ),
+                    "🎨 Analisando seu pedido...",
                 )
 
-                continue
-
-            # =============================================
-            # TEXTO NORMAL
-            # =============================================
-
-            send_message(
-                chat_id,
-                "🎨 Analisando seu pedido...",
-            )
-
-            try:
-                briefing = (
-                    criar_briefing(
-                        text
+                try:
+                    briefing = (
+                        criar_briefing(
+                            text
+                        )
                     )
-                )
 
-                send_message(
-                    chat_id,
-                    briefing,
-                )
+                    send_message(
+                        chat_id,
+                        briefing,
+                    )
 
-            except Exception as e:
+                except Exception as e:
+                    print(
+                        "Erro OpenAI:",
+                        type(
+                            e
+                        ).__name__,
+                        str(
+                            e
+                        ),
+                        flush=True,
+                    )
+
+                    send_message(
+                        chat_id,
+                        "❌  Não consegui processar.",
+                    )
+            except Exception as erro_update:
                 print(
-                    "Erro OpenAI:",
-                    type(
-                        e
-                    ).__name__,
-                    str(
-                        e
-                    ),
+                    "Erro no processamento do update:",
+                    type(erro_update).__name__,
+                    str(erro_update),
                     flush=True,
                 )
-
-                send_message(
-                    chat_id,
-                    "❌  Não consegui processar.",
-                )
+                continue
 
     except Exception as e:
         print(

@@ -9,7 +9,7 @@ from pillow_heif import register_heif_opener
 
 from drive_client import baixar_arquivo
 from photo_search import buscar_fotos
-from openai_client import client
+from openai_client import client, extrair_json
 
 from photo_intelligence import (
     buscar_candidatos_inteligentes,
@@ -720,9 +720,7 @@ score:
         ):
             resposta = resposta[:-3]
 
-        dados = json.loads(
-            resposta.strip()
-        )
+        dados = extrair_json(resposta)
 
         avaliacoes = dados.get(
             "evaluations",
@@ -1716,9 +1714,7 @@ Quando NÃO houver critério visual explícito, use:
         ):
             resposta = resposta[:-3]
 
-        decisao = json.loads(
-            resposta.strip()
-        )
+        decisao = extrair_json(resposta)
 
         avaliacao_escolhida = None
 

@@ -2,7 +2,7 @@ import json
 import sqlite3
 import unicodedata
 
-from openai_client import client
+from openai_client import client, extrair_json
 
 
 DB_FILE = "/app/data/creative_agent.db"
@@ -73,7 +73,7 @@ Regras:
     if resposta.endswith("```"):
         resposta = resposta[:-3]
 
-    return json.loads(resposta.strip())
+    return extrair_json(resposta)
 
 
 def buscar_fotos(pedido, limite=8):

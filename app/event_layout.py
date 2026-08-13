@@ -140,10 +140,13 @@ def preparar_foto(
 def hex_rgb(
     hexadecimal,
 ):
+    # Tolera None/valor vazio (antes travava com AttributeError) — se a
+    # paleta trouxer um valor ausente, cai no preto em vez de derrubar a
+    # renderização inteira.
     hexadecimal = (
         hexadecimal
-        .lstrip("#")
-    )
+        or "#000000"
+    ).lstrip("#")
 
     return tuple(
         int(

@@ -419,10 +419,13 @@ def desenhar_multilinha_destaque(
 def hex_rgb(
     hexadecimal,
 ):
+    # Tolera None/valor vazio (antes travava com AttributeError) — se a
+    # paleta trouxer um valor ausente, cai no preto em vez de derrubar a
+    # renderização inteira.
     hexadecimal = (
         hexadecimal
-        .lstrip("#")
-    )
+        or "#000000"
+    ).lstrip("#")
 
     return tuple(
         int(
@@ -451,6 +454,122 @@ def limitar(
             valor,
         ),
     )
+
+
+def ajustar_foto_na_moldura(
+    foto_original,
+    alvo_w,
+    alvo_h,
+    scale=1.0,
+    focus_x=0.5,
+    focus_y=0.5,
+    modo="cover",
+    cor_fundo=(0, 0, 0),
+):
+    """
+    Enquadra ``foto_original`` numa moldura ``alvo_w x alvo_h`` usando um
+    único modelo contínuo de zoom, substituindo os antigos modos
+    ``cover``/``safe_cover``/``smart_contain``.
+
+    ``scale`` é o único controle de zoom e é monotônico:
+        scale = 1.0  -> "cover" padrão (preenche a moldura exatamente);
+        scale > 1.0  -> aproxima (zoom in): amostra uma janela menor da
+                        origem e amplia — a pessoa fica maior;
+        scale < 1.0  -> afasta (zoom out): amostra uma janela maior da
+                        origem — mostra mais do corpo/cenário.
+
+    A janela amostrada SEMPRE tem o aspecto da moldura, então o resultado
+    preenche a moldura inteira sem barras e sem distorção. Quando a origem
+    não permite afastar mais (ex.: retrato já mostrado em largura cheia
+    dentro de uma moldura horizontal), o zoom-out é limitado ao máximo
+    geometricamente possível em vez de produzir uma tira flutuante sobre
+    fundo borrado. O segundo retorno informa se esse limite foi atingido.
+
+    ``modo="contain"`` mantém o caso raro de mostrar a foto inteira sobre
+    um fundo sólido (cor da campanha), sem o antigo blur de "montagem".
+    """
+
+    orig_w, orig_h = foto_original.size
+
+    if orig_w <= 0 or orig_h <= 0:
+        raise ValueError(
+            "Foto de origem inválida (dimensão zero)."
+        )
+
+    scale = limitar(float(scale or 1.0), 0.5, 2.5)
+    focus_x = limitar(float(focus_x), 0.0, 1.0)
+    focus_y = limitar(float(focus_y), 0.0, 1.0)
+
+    if modo == "contain":
+        destino_w = max(1, int(round(alvo_w * min(scale, 1.0))))
+        destino_h = max(1, int(round(alvo_h * min(scale, 1.0))))
+        contida = ImageOps.contain(
+            foto_original,
+            (destino_w, destino_h),
+            method=Image.Resampling.LANCZOS,
+        )
+        fundo = Image.new("RGB", (alvo_w, alvo_h), cor_fundo)
+        px = int(round((alvo_w - contida.width) * focus_x))
+        py = int(round((alvo_h - contida.height) * focus_y))
+        fundo.paste(
+            contida,
+            (max(0, px), max(0, py)),
+        )
+        return fundo, {
+            "modo": "CONTAIN",
+            "scale": round(scale, 2),
+            "zoom_out_limitado": False,
+        }
+
+    # Fator de "cover": quanto a origem precisa ser escalada para
+    # preencher a moldura. A janela de origem a scale=1 tem exatamente o
+    # aspecto da moldura.
+    cover_factor = max(alvo_w / orig_w, alvo_h / orig_h)
+    base_win_w = alvo_w / cover_factor
+    base_win_h = alvo_h / cover_factor
+
+    win_w = base_win_w / scale
+    win_h = base_win_h / scale
+
+    # Ao afastar (scale < 1) a janela cresce e pode exceder a origem.
+    # Nesse caso limitamos ao máximo possível preservando o aspecto da
+    # moldura (nunca ultrapassamos as bordas reais da foto).
+    zoom_out_limitado = False
+    if win_w > orig_w or win_h > orig_h:
+        fator = min(orig_w / win_w, orig_h / win_h)
+        if fator < 0.999:
+            zoom_out_limitado = True
+        win_w *= fator
+        win_h *= fator
+
+    win_w = min(win_w, orig_w)
+    win_h = min(win_h, orig_h)
+
+    max_x = orig_w - win_w
+    max_y = orig_h - win_h
+    left = limitar(max_x * focus_x, 0, max_x)
+    top = limitar(max_y * focus_y, 0, max_y)
+
+    janela = foto_original.crop(
+        (
+            int(round(left)),
+            int(round(top)),
+            int(round(left + win_w)),
+            int(round(top + win_h)),
+        )
+    )
+
+    foto = janela.resize(
+        (alvo_w, alvo_h),
+        Image.Resampling.LANCZOS,
+    )
+
+    return foto, {
+        "modo": "COVER",
+        "scale": round(scale, 2),
+        "janela": (int(round(win_w)), int(round(win_h))),
+        "zoom_out_limitado": zoom_out_limitado,
+    }
 
 
 # =========================================================
@@ -1828,6 +1947,11 @@ def render_promo(
         or {}
     )
 
+    # Mensagem opcional devolvida ao usuário quando o pedido de
+    # enquadramento não pôde ser atendido por limite geométrico (ex.:
+    # afastar um retrato numa moldura horizontal que já está cheia).
+    photo_note = None
+
     paleta = definir_paleta(
         direction,
         "SEASONAL_PROMO",
@@ -2185,451 +2309,78 @@ def render_promo(
                 flush=True,
             )
 
-        if photo_mode == "smart_contain":
-            # "Menos zoom" em retratos verticais dentro de uma moldura
-            # horizontal precisa mostrar mais da foto original.
-            # Para evitar um resultado sem diferença visual, usamos
-            # fundo preenchido + foto contida em primeiro plano.
-            fundo_foto = ImageOps.fit(
-                foto_original,
-                (
-                    foto_w,
-                    foto_h,
-                ),
-                method=Image.Resampling.LANCZOS,
-                centering=(
-                    photo_focus_x,
-                    0.18 if avoid_head_crop else 0.22,
-                ),
-            )
+        # -------------------------------------------------
+        # ENQUADRAMENTO UNIFICADO DA FOTO
+        # -------------------------------------------------
+        # Zoom in/out contínuo e monotônico via
+        # ajustar_foto_na_moldura(). Substitui os antigos modos
+        # cover / safe_cover / smart_contain, que tratavam o zoom
+        # de forma inconsistente: no cover o afastamento
+        # (photo_zoom < 1) era lido e ignorado, e no smart_contain
+        # o afastamento virava uma tira estreita flutuando sobre um
+        # fundo borrado ("montagem"). Agora um único parâmetro de
+        # escala preenche sempre a moldura, sem barras nem blur.
+        focus_y_efetivo = photo_focus_y
 
-            fundo_foto = fundo_foto.filter(
-                ImageFilter.GaussianBlur(
-                    radius=20
-                )
-            )
+        if more_headroom:
+            focus_y_efetivo = 0.0
+        elif avoid_head_crop:
+            focus_y_efetivo = min(photo_focus_y, 0.14)
+        elif show_lower_subject:
+            focus_y_efetivo = max(photo_focus_y, 0.30)
 
-            foto = fundo_foto.copy()
+        safe_focus_override = render_overrides.get(
+            "photo_safe_focus_y"
+        )
+        if safe_focus_override is not None:
+            focus_y_efetivo = float(safe_focus_override)
 
-            # photo_zoom < 1 representa afastamento real.
-            # Limitamos apenas o tamanho mínimo para manter presença
-            # visual dentro da campanha sem voltar ao crop agressivo.
-            smart_zoom = limitar(
-                photo_zoom,
-                0.82,
-                1.0,
-            )
+        focus_y_efetivo = limitar(
+            focus_y_efetivo,
+            0.0,
+            1.0,
+        )
 
-            inner_w = int(
-                foto_w * smart_zoom
-            )
-            inner_h = int(
-                foto_h * smart_zoom
-            )
+        modo_foto = (
+            "contain"
+            if photo_mode == "contain"
+            else "cover"
+        )
 
-            foto_contida = ImageOps.contain(
-                foto_original,
-                (
-                    inner_w,
-                    inner_h,
-                ),
-                method=Image.Resampling.LANCZOS,
-            )
+        foto, zoom_info = ajustar_foto_na_moldura(
+            foto_original,
+            foto_w,
+            foto_h,
+            scale=photo_zoom,
+            focus_x=photo_focus_x,
+            focus_y=focus_y_efetivo,
+            modo=modo_foto,
+            cor_fundo=paleta["background"],
+        )
 
-            sobra_x = max(
-                0,
-                foto_w - foto_contida.width,
-            )
+        print(
+            "Seasonal Promo photo:",
+            "SEASONAL_PROMO",
+            f"source={origem_w}x{origem_h}",
+            f"target={foto_w}x{foto_h}",
+            f"focus=({photo_focus_x:.2f},{focus_y_efetivo:.2f})",
+            zoom_info,
+            flush=True,
+        )
 
-            sobra_y = max(
-                0,
-                foto_h - foto_contida.height,
-            )
-
-            inner_x = int(
-                round(
-                    sobra_x * photo_focus_x
-                )
-            )
-
-            inner_y = int(
-                round(
-                    sobra_y * photo_focus_y
-                )
-            )
-
-            inner_x = int(
-                limitar(
-                    inner_x,
-                    0,
-                    sobra_x,
-                )
-            )
-
-            inner_y = int(
-                limitar(
-                    inner_y,
-                    0,
-                    sobra_y,
-                )
-            )
-
-            fg_mask = Image.new(
-                "L",
-                (
-                    foto_contida.width,
-                    foto_contida.height,
-                ),
-                0,
-            )
-
-            fg_draw = ImageDraw.Draw(
-                fg_mask
-            )
-
-            fg_draw.rounded_rectangle(
-                (
-                    0,
-                    0,
-                    foto_contida.width,
-                    foto_contida.height,
-                ),
-                radius=26,
-                fill=235,
-            )
-
-            sombra = Image.new(
-                "RGBA",
-                (
-                    foto_contida.width + 16,
-                    foto_contida.height + 16,
-                ),
-                (0, 0, 0, 0),
-            )
-
-            sombra_mask = Image.new(
-                "L",
-                (
-                    foto_contida.width,
-                    foto_contida.height,
-                ),
-                0,
-            )
-
-            sombra_draw = ImageDraw.Draw(
-                sombra_mask
-            )
-
-            sombra_draw.rounded_rectangle(
-                (
-                    0,
-                    0,
-                    foto_contida.width,
-                    foto_contida.height,
-                ),
-                radius=26,
-                fill=120,
-            )
-
-            sombra.paste(
-                (0, 0, 0, 110),
-                (8, 8),
-                sombra_mask.filter(
-                    ImageFilter.GaussianBlur(
-                        radius=10
-                    )
-                ),
-            )
-
-            foto = foto.convert(
-                "RGBA"
-            )
-            foto.alpha_composite(
-                sombra,
-                (
-                    max(0, inner_x - 8),
-                    max(0, inner_y - 8),
-                ),
-            )
-
-            camada_fg = Image.new(
-                "RGBA",
-                foto.size,
-                (0, 0, 0, 0),
-            )
-            camada_fg.paste(
-                foto_contida.convert(
-                    "RGBA"
-                ),
-                (
-                    inner_x,
-                    inner_y,
-                ),
-                fg_mask,
-            )
-            foto.alpha_composite(
-                camada_fg
-            )
-            foto = foto.convert(
-                "RGB"
-            )
-
-            print(
-                "Seasonal Promo photo:",
-                "SMART_CONTAIN",
-                f"source={origem_w}x{origem_h}",
-                f"target={foto_w}x{foto_h}",
-                f"zoom={smart_zoom:.2f}",
-                f"place=({inner_x},{inner_y})",
-                flush=True,
-            )
-
-
-        elif (
-            (
-                avoid_head_crop
-                or more_headroom
-                or show_lower_subject
-                or photo_mode == "safe_cover"
-            )
-            and retrato_em_moldura_horizontal
+        # Pedido forte de afastamento que a geometria não permite:
+        # em vez de gerar um resultado sem diferença visível, avisamos
+        # e oferecemos o formato Story (vertical), onde o corpo cabe.
+        if (
+            zoom_out_subject
+            and zoom_info.get("zoom_out_limitado")
+            and float(photo_reframe.get("strength", 0) or 0) >= 0.85
         ):
-            if more_headroom:
-                safe_focus_default = 0.0
-
-            elif show_lower_subject:
-                safe_focus_default = 0.24
-
-            elif center_subject:
-                safe_focus_default = 0.12
-
-            else:
-                safe_focus_default = 0.12
-
-            safe_focus_y = float(
-                render_overrides.get(
-                    "photo_safe_focus_y",
-                    safe_focus_default,
-                )
-                or safe_focus_default
-            )
-
-            safe_focus_y = limitar(
-                safe_focus_y,
-                0.0,
-                0.28,
-            )
-
-            foto = ImageOps.fit(
-                foto_original,
-                (
-                    foto_w,
-                    foto_h,
-                ),
-                method=Image.Resampling.LANCZOS,
-                centering=(
-                    photo_focus_x,
-                    safe_focus_y,
-                ),
-            )
-
-            # ---------------------------------------------
-            # ZOOM REAL DENTRO DO SAFE_COVER
-            # ---------------------------------------------
-            # Antes desta versão, ``photo_zoom`` era lido mas
-            # ignorado neste branch. Por isso pedidos como
-            # "dê mais zoom" produziam pixels idênticos.
-            #
-            # Agora ampliamos o frame já enquadrado e recortamos
-            # novamente para 916x545. Isso mantém a moldura cheia,
-            # não cria barras laterais e torna o zoom perceptível.
-            # ---------------------------------------------
-
-            if photo_zoom > 1.001:
-                zoom_w = int(
-                    round(
-                        foto_w
-                        * photo_zoom
-                    )
-                )
-
-                zoom_h = int(
-                    round(
-                        foto_h
-                        * photo_zoom
-                    )
-                )
-
-                foto_zoomed = foto.resize(
-                    (
-                        zoom_w,
-                        zoom_h,
-                    ),
-                    Image.Resampling.LANCZOS,
-                )
-
-                # Zoom ao redor do centro visual. O foco horizontal
-                # pode ser controlado pelo override existente.
-                zoom_focus_x = limitar(
-                    float(
-                        render_overrides.get(
-                            "photo_zoom_focus_x",
-                            0.5,
-                        )
-                        or 0.5
-                    ),
-                    0.0,
-                    1.0,
-                )
-
-                zoom_focus_y = limitar(
-                    float(
-                        render_overrides.get(
-                            "photo_zoom_focus_y",
-                            0.5,
-                        )
-                        or 0.5
-                    ),
-                    0.0,
-                    1.0,
-                )
-
-                excesso_x = max(
-                    0,
-                    zoom_w - foto_w,
-                )
-
-                excesso_y = max(
-                    0,
-                    zoom_h - foto_h,
-                )
-
-                crop_x = int(
-                    round(
-                        excesso_x
-                        * zoom_focus_x
-                    )
-                )
-
-                crop_y = int(
-                    round(
-                        excesso_y
-                        * zoom_focus_y
-                    )
-                )
-
-                crop_x = int(
-                    limitar(
-                        crop_x,
-                        0,
-                        excesso_x,
-                    )
-                )
-
-                crop_y = int(
-                    limitar(
-                        crop_y,
-                        0,
-                        excesso_y,
-                    )
-                )
-
-                foto = foto_zoomed.crop(
-                    (
-                        crop_x,
-                        crop_y,
-                        crop_x + foto_w,
-                        crop_y + foto_h,
-                    )
-                )
-
-                print(
-                    "Seasonal Promo zoom:",
-                    f"zoom={photo_zoom:.2f}",
-                    f"focus=({zoom_focus_x:.2f},{zoom_focus_y:.2f})",
-                    f"crop=({crop_x},{crop_y})",
-                    flush=True,
-                )
-
-            print(
-                "Seasonal Promo photo:",
-                "SAFE_COVER",
-                f"source={origem_w}x{origem_h}",
-                f"target={foto_w}x{foto_h}",
-                f"focus_y={safe_focus_y:.2f}",
-                f"zoom={photo_zoom:.2f}",
-                flush=True,
-            )
-
-        elif photo_mode == "contain":
-            # Contain continua disponível para pedidos em que
-            # mostrar a fotografia integralmente seja realmente
-            # mais importante do que preencher toda a moldura.
-            fundo_foto = ImageOps.fit(
-                foto_original,
-                (
-                    foto_w,
-                    foto_h,
-                ),
-                method=Image.Resampling.LANCZOS,
-                centering=(
-                    photo_focus_x,
-                    photo_focus_y,
-                ),
-            )
-
-            fundo_foto = fundo_foto.filter(
-                ImageFilter.GaussianBlur(
-                    radius=18
-                )
-            )
-
-            foto = fundo_foto.copy()
-
-            inner_w = int(
-                foto_w * photo_zoom
-            )
-            inner_h = int(
-                foto_h * photo_zoom
-            )
-
-            foto_contida = ImageOps.contain(
-                foto_original,
-                (
-                    inner_w,
-                    inner_h,
-                ),
-                method=Image.Resampling.LANCZOS,
-            )
-
-            inner_x = int(
-                (foto_w - foto_contida.width) / 2
-            )
-
-            inner_y = int(
-                (foto_h - foto_contida.height) / 2
-            )
-
-            foto.paste(
-                foto_contida,
-                (
-                    inner_x,
-                    inner_y,
-                ),
-            )
-
-        else:
-            foto = ImageOps.fit(
-                foto_original,
-                (
-                    foto_w,
-                    foto_h,
-                ),
-                method=Image.Resampling.LANCZOS,
-                centering=(
-                    photo_focus_x,
-                    photo_focus_y,
-                ),
+            photo_note = (
+                "ℹ️ Nesta moldura horizontal a foto já está no afastamento "
+                "máximo — afastar mais deixaria barras nas laterais. Para "
+                "mostrar o corpo inteiro sem cortar, posso gerar no formato "
+                "Story (vertical): é só pedir \"gerar em story\"."
             )
 
         canvas.paste(
@@ -3220,7 +2971,7 @@ def render_promo(
     # o canto inferior direito sem texto ou foto.
     # -----------------------------------------------------
 
-    return canvas
+    return canvas, photo_note
 
 
 # =========================================================
@@ -3252,6 +3003,8 @@ def render_seasonal(
             "SEASONAL_CLEAN"
         )
 
+    photo_note = None
+
     if (
         archetype
         == "SEASONAL_PHOTO"
@@ -3267,7 +3020,7 @@ def render_seasonal(
         archetype
         == "SEASONAL_PROMO"
     ):
-        canvas = render_promo(
+        canvas, photo_note = render_promo(
             caminho_foto,
             copy,
             pedido,
@@ -3306,6 +3059,10 @@ def render_seasonal(
     return {
         "image_path": (
             caminho_saida
+        ),
+
+        "photo_note": (
+            photo_note
         ),
 
         "composition": (

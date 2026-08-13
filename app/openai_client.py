@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from openai import OpenAI
 
@@ -8,9 +9,78 @@ API_KEY = os.getenv("OPENAI_API_KEY")
 if not API_KEY:
     raise RuntimeError("OPENAI_API_KEY não configurada")
 
-client = OpenAI(api_key=API_KEY)
+# Timeout evita que uma chamada travada segure o bot indefinidamente;
+# max_retries usa o backoff exponencial nativo do SDK para erros
+# transitórios (rate limit, conexão, 5xx). Configurável por ambiente.
+OPENAI_TIMEOUT = float(os.getenv("OPENAI_TIMEOUT", "60"))
+OPENAI_MAX_RETRIES = int(os.getenv("OPENAI_MAX_RETRIES", "4"))
+
+client = OpenAI(
+    api_key=API_KEY,
+    timeout=OPENAI_TIMEOUT,
+    max_retries=OPENAI_MAX_RETRIES,
+)
 
 BRAND_RULES_FILE = "/app/data/brand_rules.json"
+
+
+def extrair_json(texto, default=None):
+    """
+    Faz o parse de JSON vindo de um modelo de forma tolerante.
+
+    Modelos frequentemente embrulham o JSON em cercas markdown
+    (```json ... ```) ou adicionam texto ao redor. Esta função remove a
+    cerca, isola o primeiro bloco {...} ou [...] e só então faz o parse.
+
+    Em caso de falha total: se ``default`` foi informado, retorna-o;
+    caso contrário levanta ValueError com um trecho do conteúdo, para o
+    erro ser diagnosticável em vez de um JSONDecodeError cru.
+    """
+
+    if texto is None:
+        if default is not None:
+            return default
+        raise ValueError("Resposta vazia ao tentar extrair JSON.")
+
+    bruto = str(texto).strip()
+
+    # Remove cercas de código ```json ... ``` ou ``` ... ```.
+    cerca = re.match(
+        r"^```(?:json)?\s*(.*?)\s*```$",
+        bruto,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if cerca:
+        bruto = cerca.group(1).strip()
+
+    try:
+        return json.loads(bruto)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Fallback: isola o primeiro objeto/array balanceado do texto.
+    inicio = None
+    for i, ch in enumerate(bruto):
+        if ch in "{[":
+            inicio = i
+            break
+
+    if inicio is not None:
+        fim_char = "}" if bruto[inicio] == "{" else "]"
+        fim = bruto.rfind(fim_char)
+        if fim > inicio:
+            try:
+                return json.loads(bruto[inicio : fim + 1])
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+    if default is not None:
+        return default
+
+    raise ValueError(
+        "Não foi possível extrair JSON da resposta do modelo: "
+        f"{bruto[:200]!r}"
+    )
 
 
 def carregar_regras_marca():
