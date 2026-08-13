@@ -182,6 +182,15 @@ def test_marcadores_nunca_vazam_no_texto():
     assert segs == [("a ", False), ("b", True), (" c", False)]
 
 
+def test_font_delta_muda_headline():
+    caminho = _foto_arquivo()
+    base = dl.render_bold(caminho, COPY, "foto em destaque",
+                          render_overrides={})
+    maior = dl.render_bold(caminho, COPY, "foto em destaque",
+                           render_overrides={"headline_font_delta": 4})
+    assert list(base.getdata()) != list(maior.getdata())
+
+
 def test_render_com_destaque_nao_quebra_e_sem_asteriscos():
     caminho = _foto_arquivo()
     copy = {

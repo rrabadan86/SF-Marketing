@@ -585,6 +585,39 @@ def detectar_ajuste_tipografia(
     }
 
 
+def refinar_alvo_tipografia(
+    instrucao,
+    item,
+):
+    """
+    Quando o usuário nomeia o TEXTO a ajustar ("aumente a fonte de
+    Circuito Slim"), descobre a qual campo ele pertence comparando com a
+    copy do criativo. Retorna 'headline'/'support'/'cta' ou None.
+    """
+    if not instrucao or not item:
+        return None
+
+    texto = normalizar_instrucao(instrucao)
+
+    campos = [
+        ("headline", item.get("headline")),
+        ("support", item.get("support_text")),
+        ("cta", item.get("cta_text")),
+    ]
+
+    melhor = None
+    melhor_len = 0
+    for alvo, valor in campos:
+        if not valor:
+            continue
+        v = normalizar_instrucao(valor).strip().strip(".!?,")
+        if len(v) >= 3 and v in texto and len(v) > melhor_len:
+            melhor = alvo
+            melhor_len = len(v)
+
+    return melhor
+
+
 def somar_ajustes_tipografia(
     texto,
 ):
@@ -4430,6 +4463,19 @@ while True:
                             ajuste_atual = analise_refazer[
                                 "typography_adjustment"
                             ]
+
+                            # Se o usuário nomeou o texto (ex.: "a fonte de
+                            # Circuito Slim"), corrige o alvo pela copy real.
+                            alvo_refinado = (
+                                refinar_alvo_tipografia(
+                                    instrucao,
+                                    item,
+                                )
+                            )
+                            if alvo_refinado:
+                                ajuste_atual[
+                                    "target"
+                                ] = alvo_refinado
 
                             chave_delta = (
                                 ajuste_atual[

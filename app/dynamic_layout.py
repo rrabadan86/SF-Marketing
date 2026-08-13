@@ -26,6 +26,14 @@ HEIGHT = 1350
 _ULTIMO_ZOOM_OUT_LIMITADO = False
 
 
+def _ajuste_fonte(base, overrides, chave, minimo):
+    """Aplica o delta de fonte pedido pelo usuário, com piso de segurança."""
+    return max(
+        minimo,
+        base + int((overrides or {}).get(chave, 0) or 0),
+    )
+
+
 def _nota_zoom_out_limitado(overrides):
     """
     Devolve um aviso amigável quando o usuário pediu afastamento ("menos
@@ -740,6 +748,16 @@ def render_wave(
         largura_texto,
     )
 
+    # Ajuste de fonte pedido pelo usuário ("aumente/diminua a fonte").
+    headline_size = max(
+        30,
+        headline_size
+        + int(
+            overrides.get("headline_font_delta", 0)
+            or 0
+        ),
+    )
+
     y = desenhar_multilinha(
         draw,
         headline,
@@ -794,6 +812,15 @@ def render_wave(
         apoio
     ) > 82:
         support_size = 23
+
+    support_size = max(
+        16,
+        support_size
+        + int(
+            overrides.get("support_font_delta", 0)
+            or 0
+        ),
+    )
 
     y = desenhar_multilinha(
         draw,
@@ -973,7 +1000,7 @@ def render_bold(
         x,
         y,
         largura,
-        58,
+        _ajuste_fonte(58, overrides, "headline_font_delta", 34),
         COLORS["WHITE"],
         peso="bold",
         espacamento=2,
@@ -994,7 +1021,7 @@ def render_bold(
         x,
         y,
         largura,
-        26,
+        _ajuste_fonte(26, overrides, "support_font_delta", 16),
         COLORS["WHITE"],
         peso="regular",
         espacamento=5,
@@ -1085,7 +1112,7 @@ def render_split(
         x,
         y,
         largura,
-        52,
+        _ajuste_fonte(52, overrides, "headline_font_delta", 32),
         COLORS["WHITE"],
         peso="bold",
         espacamento=2,
@@ -1106,7 +1133,7 @@ def render_split(
         x,
         y,
         largura,
-        25,
+        _ajuste_fonte(25, overrides, "support_font_delta", 16),
         COLORS["WHITE"],
         peso="regular",
         espacamento=5,
