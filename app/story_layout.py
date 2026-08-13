@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
 from dynamic_layout import detectar_tema_wave
+from adaptive_layout import medir, hex_rgb
 
 
 WIDTH = 1080
@@ -56,42 +57,6 @@ def fonte(tamanho, peso="regular"):
         )
 
     return ImageFont.load_default()
-
-
-def hex_rgb(valor):
-    valor = (
-        valor
-        or "#000000"
-    ).lstrip("#")
-
-    return tuple(
-        int(
-            valor[i:i + 2],
-            16,
-        )
-        for i in (
-            0,
-            2,
-            4,
-        )
-    )
-
-
-def medir(
-    draw,
-    texto,
-    font,
-):
-    bbox = draw.textbbox(
-        (0, 0),
-        texto or "",
-        font=font,
-    )
-
-    return (
-        bbox[2] - bbox[0],
-        bbox[3] - bbox[1],
-    )
 
 
 def quebrar_texto(
