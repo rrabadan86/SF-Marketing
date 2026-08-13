@@ -12,6 +12,36 @@ def clamp(
     )
 
 
+# -------------------------------------------------------------
+# Primitivas compartilhadas (antes duplicadas em cada renderer)
+# -------------------------------------------------------------
+
+def medir(draw, texto, font):
+    """Largura e altura de um texto. Tolera None."""
+    bbox = draw.textbbox(
+        (0, 0),
+        texto or "",
+        font=font,
+    )
+    return (
+        bbox[2] - bbox[0],
+        bbox[3] - bbox[1],
+    )
+
+
+def hex_rgb(valor):
+    """Converte '#RRGGBB' em (r, g, b). Tolera None/vazio (-> preto)."""
+    valor = (
+        valor
+        or "#000000"
+    ).lstrip("#")
+
+    return tuple(
+        int(valor[i:i + 2], 16)
+        for i in (0, 2, 4)
+    )
+
+
 def altura_linhas(
     draw,
     texto,

@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
 from seasonal_layout import ajustar_foto_na_moldura
+from adaptive_layout import medir, hex_rgb
 
 
 WIDTH = 1080
@@ -137,19 +138,6 @@ def fonte(tamanho, peso="regular"):
         )
 
     return ImageFont.load_default()
-
-
-def medir(draw, texto, font):
-    bbox = draw.textbbox(
-        (0, 0),
-        texto or "",
-        font=font,
-    )
-
-    return (
-        bbox[2] - bbox[0],
-        bbox[3] - bbox[1],
-    )
 
 
 def quebrar(draw, texto, font, largura_max):

@@ -299,12 +299,31 @@ def limitar(
             )[0]
         )
 
-    return (
-        parcial.rstrip(
-            ".,;:-"
-        )
-        + "."
+    parcial = parcial.rstrip(
+        ".,;:- "
     )
+
+    # Remove palavras "penduradas" no fim (conjunções, preposições,
+    # artigos, possessivos) que deixam a frase truncada sem sentido,
+    # ex.: "...sua motivação e suas." -> "...sua motivação."
+    penduradas = {
+        "e", "ou", "de", "da", "do", "das", "dos",
+        "a", "o", "as", "os", "para", "por", "com",
+        "sem", "em", "no", "na", "nos", "nas", "ao",
+        "aos", "sua", "suas", "seu", "seus", "um",
+        "uma", "que", "à", "às", "the",
+    }
+
+    tokens = parcial.split()
+    while tokens and tokens[-1].lower().strip(".,;:-") in penduradas:
+        tokens.pop()
+
+    parcial = " ".join(tokens).rstrip(".,;:- ")
+
+    if not parcial:
+        return ""
+
+    return parcial + "."
 
 
 # =========================================================

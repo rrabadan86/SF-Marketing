@@ -14,6 +14,8 @@ from PIL import (
 from adaptive_layout import (
     altura_linhas,
     calcular_bloco,
+    medir,
+    hex_rgb,
 )
 
 from face_framing import detectar_foco_rosto
@@ -94,23 +96,6 @@ def fonte(
 # =========================================================
 # TEXTO
 # =========================================================
-
-def medir(
-    draw,
-    texto,
-    font,
-):
-    bbox = draw.textbbox(
-        (0, 0),
-        texto,
-        font=font,
-    )
-
-    return (
-        bbox[2] - bbox[0],
-        bbox[3] - bbox[1],
-    )
-
 
 def quebrar(
     draw,
@@ -418,32 +403,6 @@ def desenhar_multilinha_destaque(
 # =========================================================
 # CORES
 # =========================================================
-
-def hex_rgb(
-    hexadecimal,
-):
-    # Tolera None/valor vazio (antes travava com AttributeError) — se a
-    # paleta trouxer um valor ausente, cai no preto em vez de derrubar a
-    # renderização inteira.
-    hexadecimal = (
-        hexadecimal
-        or "#000000"
-    ).lstrip("#")
-
-    return tuple(
-        int(
-            hexadecimal[
-                i:i + 2
-            ],
-            16,
-        )
-        for i in (
-            0,
-            2,
-            4,
-        )
-    )
-
 
 def limitar(
     valor,
