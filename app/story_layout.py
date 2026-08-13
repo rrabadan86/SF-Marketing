@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
 from dynamic_layout import detectar_tema_wave
-from adaptive_layout import medir, hex_rgb, fonte, quebrar
+from adaptive_layout import medir, hex_rgb, fonte, quebrar, desenhar_multilinha
 
 
 WIDTH = 1080
@@ -22,62 +22,6 @@ COLORS = {
     "CAMPAIGN_YELLOW": "#FFD600",
     "CAMPAIGN_GREEN": "#005A4E",
 }
-
-
-def desenhar_multilinha(
-    draw,
-    texto,
-    x,
-    y,
-    largura,
-    tamanho,
-    cor,
-    peso="regular",
-    espacamento=8,
-    max_linhas=None,
-):
-    font = fonte(
-        tamanho,
-        peso,
-    )
-
-    linhas = quebrar(
-        draw,
-        texto,
-        font,
-        largura,
-    )
-
-    if max_linhas is not None:
-        linhas = linhas[
-            :max_linhas
-        ]
-
-    atual_y = y
-
-    for linha in linhas:
-        _, altura = medir(
-            draw,
-            linha,
-            font,
-        )
-
-        draw.text(
-            (
-                x,
-                atual_y,
-            ),
-            linha,
-            font=font,
-            fill=cor,
-        )
-
-        atual_y += (
-            altura
-            + espacamento
-        )
-
-    return atual_y
 
 
 def tamanho_automatico(

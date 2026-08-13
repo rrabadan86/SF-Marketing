@@ -21,6 +21,7 @@ from adaptive_layout import (
     hex_rgb,
     fonte,
     quebrar,
+    desenhar_multilinha,
 )
 
 
@@ -118,59 +119,6 @@ def preparar_foto(
 # =========================================================
 # TEXTO
 # =========================================================
-
-def desenhar_multilinha(
-    draw,
-    texto,
-    x,
-    y,
-    largura_max,
-    tamanho,
-    cor,
-    peso="regular",
-    espacamento=7,
-):
-    if not texto:
-        return y
-
-    font = fonte(
-        tamanho,
-        peso,
-    )
-
-    linhas = quebrar(
-        draw,
-        texto,
-        font,
-        largura_max,
-    )
-
-    atual_y = y
-
-    for linha in linhas:
-        draw.text(
-            (
-                x,
-                atual_y,
-            ),
-            linha,
-            font=font,
-            fill=cor,
-        )
-
-        _, altura = medir(
-            draw,
-            linha,
-            font,
-        )
-
-        atual_y += (
-            altura
-            + espacamento
-        )
-
-    return atual_y
-
 
 # =========================================================
 # DATA / HORÁRIO

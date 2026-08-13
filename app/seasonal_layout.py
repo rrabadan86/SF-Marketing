@@ -18,6 +18,7 @@ from adaptive_layout import (
     hex_rgb,
     fonte,
     quebrar,
+    desenhar_multilinha,
 )
 
 from face_framing import detectar_foco_rosto
@@ -55,84 +56,6 @@ VALID_ARCHETYPES = {
 # =========================================================
 # TEXTO
 # =========================================================
-
-def desenhar_multilinha(
-    draw,
-    texto,
-    x,
-    y,
-    largura_max,
-    tamanho,
-    cor,
-    peso="regular",
-    espacamento=7,
-    alinhamento="left",
-):
-    if not texto:
-        return y
-
-    font = fonte(
-        tamanho,
-        peso,
-    )
-
-    linhas = quebrar(
-        draw,
-        texto,
-        font,
-        largura_max,
-    )
-
-    atual_y = y
-
-    for linha in linhas:
-        largura, altura = medir(
-            draw,
-            linha,
-            font,
-        )
-
-        if alinhamento == "center":
-            linha_x = (
-                x
-                + (
-                    largura_max
-                    - largura
-                )
-                / 2
-            )
-
-        elif alinhamento == "right":
-            linha_x = (
-                x
-                + largura_max
-                - largura
-            )
-
-        else:
-            linha_x = x
-
-        draw.text(
-            (
-                int(
-                    linha_x
-                ),
-                int(
-                    atual_y
-                ),
-            ),
-            linha,
-            font=font,
-            fill=cor,
-        )
-
-        atual_y += (
-            altura
-            + espacamento
-        )
-
-    return atual_y
-
 
 def desenhar_multilinha_destaque(
     draw,

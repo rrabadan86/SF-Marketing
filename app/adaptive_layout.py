@@ -110,6 +110,59 @@ def quebrar(draw, texto, font, largura_max):
     return linhas
 
 
+def desenhar_multilinha(
+    draw,
+    texto,
+    x,
+    y,
+    largura,
+    tamanho,
+    cor,
+    peso="regular",
+    espacamento=7,
+    max_linhas=None,
+    alinhamento="left",
+):
+    """
+    Desenha texto quebrado em linhas e devolve o y final.
+
+    Superset das versões antes duplicadas nos renderizadores:
+    - ``max_linhas`` trunca (Dynamic/Story);
+    - ``alinhamento`` 'left'/'center'/'right' (Seasonal).
+    Texto vazio devolve ``y`` sem desenhar.
+    """
+    if not texto:
+        return y
+
+    font = fonte(tamanho, peso)
+    linhas = quebrar(draw, texto, font, largura)
+
+    if max_linhas:
+        linhas = linhas[:max_linhas]
+
+    atual_y = y
+
+    for linha in linhas:
+        largura_linha, altura = medir(draw, linha, font)
+
+        if alinhamento == "center":
+            linha_x = x + (largura - largura_linha) / 2
+        elif alinhamento == "right":
+            linha_x = x + largura - largura_linha
+        else:
+            linha_x = x
+
+        draw.text(
+            (int(linha_x), int(atual_y)),
+            linha,
+            font=font,
+            fill=cor,
+        )
+        atual_y += altura + espacamento
+
+    return atual_y
+
+
 def altura_linhas(
     draw,
     texto,
