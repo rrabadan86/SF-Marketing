@@ -1618,6 +1618,13 @@ def pedido_pede_mais_zoom(
         "amplie a foto",
         "amplie a fotografia",
         "aproxime a aluna",
+        "maximo de zoom",
+        "o maximo de zoom",
+        "maximo zoom",
+        "zoom maximo",
+        "zoom no maximo",
+        "o maior zoom",
+        "maior zoom possivel",
     ]
 
     if not any(
@@ -1645,10 +1652,17 @@ def pedido_pede_mais_zoom(
             "no limite da medalha",
             "ate a medalha",
             "até a medalha",
+            "maximo de zoom",
+            "o maximo de zoom",
+            "maximo zoom",
+            "zoom maximo",
+            "zoom no maximo",
+            "o maior zoom",
+            "maior zoom possivel",
         ]
     ):
-        zoom = 1.18
-        strength = 0.9
+        zoom = 1.22
+        strength = 0.95
 
     return {
         "intent": "zoom_in_subject",
@@ -1933,9 +1947,20 @@ def detectar_ajustes_visuais_cirurgicos(
             zoom_in_request["zoom"] - 1.0,
         )
 
-        ajustes[
-            "photo_focus_x"
-        ] = 0.5
+        # Não fixa o foco horizontal: deixa o rosto detectado centralizar
+        # (evita cortar quem está fora do centro ao aproximar).
+
+        # "Sem cortar a cabeça" protege o topo mesmo aproximando.
+        if (
+            "cabeca" in texto
+            or "cabeça" in texto
+        ):
+            ajustes[
+                "avoid_head_crop"
+            ] = True
+            ajustes[
+                "photo_focus_y"
+            ] = 0.10
 
         if any(
             termo in texto
