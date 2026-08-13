@@ -16,6 +16,7 @@ from adaptive_layout import (
     calcular_bloco,
     medir,
     hex_rgb,
+    fonte,
 )
 
 from face_framing import detectar_foco_rosto
@@ -49,49 +50,6 @@ VALID_ARCHETYPES = {
 # =========================================================
 # FONTES
 # =========================================================
-
-def localizar_fonte(
-    peso="regular",
-):
-    if peso == "bold":
-        candidatos = [
-            "/app/assets/fonts/Nexa-Bold.ttf",
-            "/app/assets/fonts/Nexa-Bold.otf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        ]
-
-    else:
-        candidatos = [
-            "/app/assets/fonts/Nexa-Regular.ttf",
-            "/app/assets/fonts/Nexa-Regular.otf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        ]
-
-    for caminho in candidatos:
-        if os.path.exists(
-            caminho
-        ):
-            return caminho
-
-    return None
-
-
-def fonte(
-    tamanho,
-    peso="regular",
-):
-    caminho = localizar_fonte(
-        peso
-    )
-
-    if caminho:
-        return ImageFont.truetype(
-            caminho,
-            tamanho,
-        )
-
-    return ImageFont.load_default()
-
 
 # =========================================================
 # TEXTO

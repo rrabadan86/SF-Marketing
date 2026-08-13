@@ -1,3 +1,42 @@
+import os
+
+from PIL import ImageFont
+
+
+# Escada de fontes da marca: Nexa (oficial) com fallback DejaVu.
+def _fonte_path(peso="regular"):
+    if peso == "bold":
+        candidatos = [
+            "/app/assets/fonts/Nexa-Bold.otf",
+            "/app/assets/fonts/Nexa-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        ]
+    else:
+        candidatos = [
+            "/app/assets/fonts/Nexa-Regular.otf",
+            "/app/assets/fonts/Nexa-Regular.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ]
+
+    for caminho in candidatos:
+        if os.path.exists(caminho):
+            return caminho
+
+    return None
+
+
+def fonte(tamanho, peso="regular"):
+    caminho = _fonte_path(peso)
+
+    if caminho:
+        return ImageFont.truetype(
+            caminho,
+            int(tamanho),
+        )
+
+    return ImageFont.load_default()
+
+
 def clamp(
     valor,
     minimo,

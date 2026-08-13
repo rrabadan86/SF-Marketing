@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
 from dynamic_layout import detectar_tema_wave
-from adaptive_layout import medir, hex_rgb
+from adaptive_layout import medir, hex_rgb, fonte
 
 
 WIDTH = 1080
@@ -22,41 +22,6 @@ COLORS = {
     "CAMPAIGN_YELLOW": "#FFD600",
     "CAMPAIGN_GREEN": "#005A4E",
 }
-
-
-def localizar_fonte(peso="regular"):
-    if peso == "bold":
-        candidatos = [
-            "/app/assets/fonts/Nexa-Bold.otf",
-            "/app/assets/fonts/Nexa-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        ]
-    else:
-        candidatos = [
-            "/app/assets/fonts/Nexa-Regular.otf",
-            "/app/assets/fonts/Nexa-Regular.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        ]
-
-    for caminho in candidatos:
-        if os.path.exists(caminho):
-            return caminho
-
-    return None
-
-
-def fonte(tamanho, peso="regular"):
-    caminho = localizar_fonte(
-        peso
-    )
-
-    if caminho:
-        return ImageFont.truetype(
-            caminho,
-            int(tamanho),
-        )
-
-    return ImageFont.load_default()
 
 
 def quebrar_texto(
