@@ -177,13 +177,21 @@ Se não houver indicação, use Feed 4:5.
 Explique brevemente a ideia central.
 
 📝 HEADLINE
-Crie uma headline curta e coerente com o tom da marca.
+Crie uma headline curta, de impacto e coerente com o tom acolhedor da
+marca. Regras: no máximo 6 palavras (até ~42 caracteres); uma frase
+COMPLETA (nunca corte no meio); foco no benefício ou no convite; evite
+clichês e reticências.
 
 💬 TEXTO DE APOIO
-Crie um texto secundário curto.
+Crie um texto secundário de UMA frase completa, até ~90 caracteres, que
+complemente a headline sem repeti-la. Nunca termine com a frase incompleta
+(evite terminar em "e suas.", "para o…", etc.); se não couber a ideia
+inteira, escreva uma ideia menor e completa.
 
 👉 CTA
-Crie uma chamada para ação.
+Crie uma chamada para ação curta: 2 a 4 palavras, até ~22 caracteres,
+começando por um verbo de ação (ex.: "Agende sua aula.", "Venha treinar.",
+"Garanta sua vaga."). Uma frase completa, sem cortar.
 
 📷 FOTO IDEAL
 Descreva a fotografia que deve ser buscada no acervo,
