@@ -10,6 +10,8 @@ from PIL import (
     ImageOps,
 )
 
+from face_framing import detectar_foco_rosto
+
 from adaptive_layout import (
     altura_linhas,
     calcular_bloco,
@@ -122,6 +124,19 @@ def preparar_foto(
         caminho
     ).convert("RGB")
 
+    # Centraliza no(s) rosto(s) e protege a cabeça; sem rosto, usa o
+    # centering padrão do layout como fallback.
+    foco = detectar_foco_rosto(
+        imagem,
+        default=centering,
+    )
+
+    print(
+        "Event framing: foco=",
+        foco,
+        flush=True,
+    )
+
     return ImageOps.fit(
         imagem,
         (
@@ -129,7 +144,7 @@ def preparar_foto(
             HEIGHT,
         ),
         method=Image.Resampling.LANCZOS,
-        centering=centering,
+        centering=foco,
     )
 
 

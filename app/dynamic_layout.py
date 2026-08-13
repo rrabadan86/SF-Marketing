@@ -4,6 +4,8 @@ import tempfile
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from face_framing import detectar_foco_rosto
+
 
 WIDTH = 1080
 HEIGHT = 1350
@@ -315,6 +317,19 @@ def crop_foto(
         "RGB"
     )
 
+    # Centraliza no(s) rosto(s) e protege a cabeça; sem rosto detectado,
+    # usa o ponto fixo padrão.
+    foco = detectar_foco_rosto(
+        foto,
+        default=(0.5, 0.37),
+    )
+
+    print(
+        "Dynamic framing: foco=",
+        foco,
+        flush=True,
+    )
+
     return ImageOps.fit(
         foto,
         (
@@ -324,10 +339,7 @@ def crop_foto(
         method=(
             Image.Resampling.LANCZOS
         ),
-        centering=(
-            0.5,
-            0.37,
-        ),
+        centering=foco,
     )
 
 
