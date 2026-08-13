@@ -153,6 +153,24 @@ def test_render_wave_temas():
 
 
 # ---------------------------------------------------------------
+# Dynamic — aviso de zoom-out no limite geométrico
+# ---------------------------------------------------------------
+
+def test_zoom_out_limitado_avisa_em_foto_horizontal():
+    # Foto horizontal numa moldura vertical: "menos zoom" bate no limite.
+    caminho = _foto_arquivo(3024, 2016)
+    neutro = dl.render_dynamic(caminho, COPY, "post normal", foto={},
+                               render_overrides={"photo_zoom": 1.0})
+    afasta = dl.render_dynamic(caminho, COPY, "post normal", foto={},
+                               render_overrides={"photo_zoom": 0.92})
+    aproxima = dl.render_dynamic(caminho, COPY, "post normal", foto={},
+                                 render_overrides={"photo_zoom": 1.22})
+    assert not neutro.get("photo_note")
+    assert afasta.get("photo_note")  # avisou que não dá para afastar mais
+    assert not aproxima.get("photo_note")
+
+
+# ---------------------------------------------------------------
 # date_utils
 # ---------------------------------------------------------------
 
