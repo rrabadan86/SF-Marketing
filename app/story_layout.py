@@ -4,6 +4,8 @@ import tempfile
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from face_framing import detectar_foco_rosto
+
 
 WIDTH = 1080
 HEIGHT = 1920
@@ -361,6 +363,19 @@ def criar_base_foto(
         "RGB"
     )
 
+    # Enquadramento centrado no(s) rosto(s), com a cabeça protegida.
+    # Se não houver detecção/rosto, cai no ponto fixo padrão (0.5, 0.32).
+    foco = detectar_foco_rosto(
+        original,
+        default=(0.5, 0.32),
+    )
+
+    print(
+        "Story framing: foco=",
+        foco,
+        flush=True,
+    )
+
     # Fundo full-bleed para evitar faixas.
     fundo = ImageOps.fit(
         original,
@@ -369,10 +384,7 @@ def criar_base_foto(
             HEIGHT,
         ),
         method=Image.Resampling.LANCZOS,
-        centering=(
-            0.5,
-            0.32,
-        ),
+        centering=foco,
     )
 
     # A parte visualmente importante recebe um crop menos
@@ -386,10 +398,7 @@ def criar_base_foto(
             topo_h,
         ),
         method=Image.Resampling.LANCZOS,
-        centering=(
-            0.5,
-            0.32,
-        ),
+        centering=foco,
     )
 
     fundo.paste(
