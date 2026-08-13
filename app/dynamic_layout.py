@@ -13,6 +13,32 @@ from adaptive_layout import medir, hex_rgb, fonte, quebrar, desenhar_multilinha
 WIDTH = 1080
 HEIGHT = 1350
 
+# Registra se o último enquadramento de foto bateu no limite geométrico de
+# zoom-out (foto horizontal numa moldura vertical não tem mais o que revelar).
+# Processamento é sequencial por pedido, então o global reflete a última foto.
+_ULTIMO_ZOOM_OUT_LIMITADO = False
+
+
+def _nota_zoom_out_limitado(overrides):
+    """
+    Devolve um aviso amigável quando o usuário pediu afastamento ("menos
+    zoom"/"corpo inteiro") mas a geometria não permitiu revelar mais — em vez
+    de mandar uma imagem visualmente idêntica sem explicação.
+    """
+    overrides = overrides or {}
+    pediu_afastar = (
+        float(overrides.get("photo_zoom", 1.0) or 1.0) < 1.0
+        or bool(overrides.get("full_body"))
+    )
+    if pediu_afastar and _ULTIMO_ZOOM_OUT_LIMITADO:
+        return (
+            "ℹ️ Esta foto é horizontal e já está no afastamento máximo dentro "
+            "do formato feed — afastar mais deixaria barras nas laterais. Para "
+            "mostrar o corpo inteiro/todo o grupo sem cortar, posso gerar no "
+            "formato Story (vertical): é só pedir \"gerar em story\"."
+        )
+    return None
+
 COLORS = {
     "TIFFANY": "#11ACB0",
     "CORAL": "#F37A73",
@@ -198,6 +224,11 @@ def crop_foto(
         info,
         f"focus=({fx:.2f},{fy:.2f})",
         flush=True,
+    )
+
+    global _ULTIMO_ZOOM_OUT_LIMITADO
+    _ULTIMO_ZOOM_OUT_LIMITADO = bool(
+        info.get("zoom_out_limitado")
     )
 
     return foto_out
@@ -1009,7 +1040,7 @@ def render_split(
     if overrides.get("avoid_head_crop"):
         fy = min(fy, 0.12)
     zoom = float(overrides.get("photo_zoom", 1.0) or 1.0)
-    foto_area, _ = ajustar_foto_na_moldura(
+    foto_area, _info_split = ajustar_foto_na_moldura(
         foto,
         WIDTH,
         divisor,
@@ -1017,6 +1048,10 @@ def render_split(
         focus_x=fx,
         focus_y=fy,
         modo="cover",
+    )
+    global _ULTIMO_ZOOM_OUT_LIMITADO
+    _ULTIMO_ZOOM_OUT_LIMITADO = bool(
+        _info_split.get("zoom_out_limitado")
     )
     canvas.paste(foto_area, (0, 0))
 
@@ -1098,6 +1133,9 @@ def render_dynamic(
     palavra-chave no pedido; composição desconhecida cai na onda.
     """
 
+    global _ULTIMO_ZOOM_OUT_LIMITADO
+    _ULTIMO_ZOOM_OUT_LIMITADO = False
+
     composition = (
         composition_override
         or detectar_composicao(pedido)
@@ -1146,6 +1184,9 @@ def render_dynamic(
             ),
             "width": WIDTH,
             "height": HEIGHT,
+            "photo_note": _nota_zoom_out_limitado(
+                render_overrides
+            ),
         }
 
     canvas = render_wave(
@@ -1185,4 +1226,7 @@ def render_dynamic(
         ),
         "width": WIDTH,
         "height": HEIGHT,
+        "photo_note": _nota_zoom_out_limitado(
+            render_overrides
+        ),
     }
