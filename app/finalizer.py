@@ -1,4 +1,20 @@
-from PIL import Image
+from PIL import Image, ImageFilter
+
+
+def aplicar_nitidez(imagem):
+    """
+    Realce sutil de nitidez (unsharp mask) para compensar o amaciamento
+    natural do redimensionamento LANCZOS. O threshold evita realçar ruído
+    em áreas lisas (fundos chapados da identidade), agindo principalmente
+    nas bordas da fotografia e do texto.
+    """
+    return imagem.filter(
+        ImageFilter.UnsharpMask(
+            radius=1.5,
+            percent=65,
+            threshold=3,
+        )
+    )
 
 
 def ajustar_para_instagram_4x5(
@@ -38,10 +54,13 @@ def ajustar_para_instagram_4x5(
         )
     )
 
+    imagem = aplicar_nitidez(imagem)
+
     imagem.save(
         caminho_saida,
         "JPEG",
-        quality=94,
+        quality=95,
+        subsampling=0,
         optimize=True,
     )
 

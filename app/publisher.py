@@ -7,6 +7,7 @@ from PIL import Image
 
 from finalizer import (
     ajustar_para_instagram_4x5,
+    aplicar_nitidez,
 )
 
 from logo_manager import (
@@ -268,6 +269,10 @@ def preparar_canvas_publicacao(
                     STORY_SIZE,
                     Image.Resampling.LANCZOS,
                 )
+
+            imagem = aplicar_nitidez(
+                imagem
+            )
 
             imagem.save(
                 caminho_base,
