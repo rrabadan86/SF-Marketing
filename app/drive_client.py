@@ -3,6 +3,7 @@ import io
 
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import (
     MediaIoBaseDownload,
@@ -24,40 +25,88 @@ DRIVE_SCOPE = [
 ]
 
 
-def get_drive_credentials():
-    # Prioridade: OAuth da conta Google do usuário.
-    if os.path.exists(OAUTH_TOKEN_FILE):
-        credentials = Credentials.from_authorized_user_file(
-            OAUTH_TOKEN_FILE,
+def _carregar_oauth():
+    """
+    Carrega o token OAuth do usuário e, se necessário, faz o refresh de
+    forma proativa. Se o refresh token estiver expirado/revogado
+    (invalid_grant), a exceção sobe para o chamador decidir o fallback —
+    em vez de estourar mais tarde, no meio de uma chamada à API.
+    """
+
+    if not os.path.exists(OAUTH_TOKEN_FILE):
+        return None
+
+    credentials = Credentials.from_authorized_user_file(
+        OAUTH_TOKEN_FILE,
+        scopes=DRIVE_SCOPE,
+    )
+
+    if not credentials.valid:
+        if (
+            credentials.expired
+            and credentials.refresh_token
+        ):
+            # Pode levantar RefreshError (invalid_grant) — proposital:
+            # queremos detectar o token morto aqui e cair para a SA.
+            credentials.refresh(Request())
+        else:
+            return None
+
+    return credentials
+
+
+def _carregar_service_account():
+    if not os.path.exists(CREDENTIALS_FILE):
+        return None
+
+    return (
+        service_account.Credentials
+        .from_service_account_file(
+            CREDENTIALS_FILE,
             scopes=DRIVE_SCOPE,
         )
+    )
 
+
+def get_drive_credentials():
+    # 1) Tenta OAuth da conta Google do usuário.
+    try:
+        credentials = _carregar_oauth()
+
+        if credentials:
+            print(
+                "Google Drive autenticado via OAuth",
+                flush=True,
+            )
+
+            return credentials
+
+    except Exception as erro:
+        # Token OAuth morto (invalid_grant) ou arquivo inválido: em vez
+        # de derrubar a geração, caímos para a Service Account.
         print(
-            "Google Drive autenticado via OAuth",
+            "OAuth do Drive indisponível "
+            f"({type(erro).__name__}: {erro}); "
+            "tentando Service Account.",
             flush=True,
         )
 
-        return credentials
+    # 2) Fallback: Service Account (não expira — ideal para servidor).
+    conta_servico = _carregar_service_account()
 
-    # Fallback: Service Account.
-    if os.path.exists(CREDENTIALS_FILE):
-        credentials = (
-            service_account.Credentials
-            .from_service_account_file(
-                CREDENTIALS_FILE,
-                scopes=DRIVE_SCOPE,
-            )
-        )
-
+    if conta_servico:
         print(
             "Google Drive autenticado via Service Account",
             flush=True,
         )
 
-        return credentials
+        return conta_servico
 
     raise RuntimeError(
-        "Nenhuma credencial Google encontrada."
+        "Nenhuma credencial Google válida: o token OAuth falhou "
+        "(expirado/revogado) e não há Service Account em "
+        f"{CREDENTIALS_FILE}. Configure a Service Account e compartilhe "
+        "as pastas do Drive com o e-mail dela."
     )
 
 

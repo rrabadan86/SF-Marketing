@@ -3415,6 +3415,22 @@ def executar_criacao(
                     "Nenhuma fotografia foi alterada.",
                 )
 
+            elif (
+                "invalid_grant" in mensagem_erro
+                or "Token has been expired or revoked" in mensagem_erro
+                or "credencial Google" in mensagem_erro
+                or "RefreshError" in type(e).__name__
+            ):
+                send_message(
+                    chat_id,
+                    "🔐 Falha de acesso ao Google Drive: a credencial "
+                    "expirou ou foi revogada.\n\n"
+                    "É preciso renovar o acesso no servidor "
+                    "(Service Account em /app/secrets/google.json, com as "
+                    "pastas do Drive compartilhadas com o e-mail dela). "
+                    "Nenhum criativo foi alterado.",
+                )
+
             else:
                 send_message(
                     chat_id,
