@@ -1,3 +1,42 @@
+import os
+
+from PIL import ImageFont
+
+
+# Escada de fontes da marca: Nexa (oficial) com fallback DejaVu.
+def _fonte_path(peso="regular"):
+    if peso == "bold":
+        candidatos = [
+            "/app/assets/fonts/Nexa-Bold.otf",
+            "/app/assets/fonts/Nexa-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        ]
+    else:
+        candidatos = [
+            "/app/assets/fonts/Nexa-Regular.otf",
+            "/app/assets/fonts/Nexa-Regular.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ]
+
+    for caminho in candidatos:
+        if os.path.exists(caminho):
+            return caminho
+
+    return None
+
+
+def fonte(tamanho, peso="regular"):
+    caminho = _fonte_path(peso)
+
+    if caminho:
+        return ImageFont.truetype(
+            caminho,
+            int(tamanho),
+        )
+
+    return ImageFont.load_default()
+
+
 def clamp(
     valor,
     minimo,
@@ -40,6 +79,35 @@ def hex_rgb(valor):
         int(valor[i:i + 2], 16)
         for i in (0, 2, 4)
     )
+
+
+def quebrar(draw, texto, font, largura_max):
+    """
+    Quebra o texto em linhas que cabem em ``largura_max``. Palavra
+    isolada maior que a largura fica sozinha na linha (não some).
+    """
+    palavras = (texto or "").split()
+
+    if not palavras:
+        return []
+
+    linhas = []
+    atual = []
+
+    for palavra in palavras:
+        tentativa = " ".join(atual + [palavra])
+        largura, _ = medir(draw, tentativa, font)
+
+        if largura <= largura_max or not atual:
+            atual.append(palavra)
+        else:
+            linhas.append(" ".join(atual))
+            atual = [palavra]
+
+    if atual:
+        linhas.append(" ".join(atual))
+
+    return linhas
 
 
 def altura_linhas(

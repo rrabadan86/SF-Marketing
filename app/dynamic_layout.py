@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
 from seasonal_layout import ajustar_foto_na_moldura
-from adaptive_layout import medir, hex_rgb
+from adaptive_layout import medir, hex_rgb, fonte, quebrar
 
 
 WIDTH = 1080
@@ -99,97 +99,6 @@ def detectar_tema_wave(pedido):
         return "escuro"
 
     return "coral"
-
-
-def fonte_path(peso="regular"):
-    candidatos = []
-
-    if peso == "bold":
-        candidatos.extend([
-            "/app/assets/fonts/Nexa-Bold.otf",
-            "/app/assets/fonts/Nexa-Bold.ttf",
-        ])
-    else:
-        candidatos.extend([
-            "/app/assets/fonts/Nexa-Regular.otf",
-            "/app/assets/fonts/Nexa-Regular.ttf",
-        ])
-
-    candidatos.extend([
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if peso == "bold"
-        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    ])
-
-    for caminho in candidatos:
-        if os.path.exists(caminho):
-            return caminho
-
-    return None
-
-
-def fonte(tamanho, peso="regular"):
-    caminho = fonte_path(peso)
-
-    if caminho:
-        return ImageFont.truetype(
-            caminho,
-            int(tamanho),
-        )
-
-    return ImageFont.load_default()
-
-
-def quebrar(draw, texto, font, largura_max):
-    palavras = (
-        texto
-        or ""
-    ).split()
-
-    if not palavras:
-        return []
-
-    linhas = []
-    atual = []
-
-    for palavra in palavras:
-        tentativa = " ".join(
-            atual + [palavra]
-        )
-
-        largura, _ = medir(
-            draw,
-            tentativa,
-            font,
-        )
-
-        if (
-            largura <= largura_max
-            or not atual
-        ):
-            atual.append(
-                palavra
-            )
-
-        else:
-            linhas.append(
-                " ".join(
-                    atual
-                )
-            )
-
-            atual = [
-                palavra
-            ]
-
-    if atual:
-        linhas.append(
-            " ".join(
-                atual
-            )
-        )
-
-    return linhas
 
 
 def desenhar_multilinha(
