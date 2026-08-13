@@ -118,271 +118,191 @@ def registrar_criativo(
     render_overrides=None,
 ):
     conn = get_conn()
+    try:
 
-    agora = datetime.now().isoformat(
-        timespec="seconds"
-    )
+        agora = datetime.now().isoformat(
+            timespec="seconds"
+        )
 
-    copy = (
-        copy
-        or {}
-    )
+        copy = (
+            copy
+            or {}
+        )
 
-    render_overrides = (
-        render_overrides
-        or {}
-    )
+        render_overrides = (
+            render_overrides
+            or {}
+        )
 
-    render_overrides_json = json.dumps(
-        render_overrides,
-        ensure_ascii=False,
-        sort_keys=True,
-    )
+        render_overrides_json = json.dumps(
+            render_overrides,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
 
-    cursor = conn.execute("""
-        INSERT INTO creatives (
+        cursor = conn.execute("""
+            INSERT INTO creatives (
+                parent_code,
+                revision_type,
+
+                request,
+                briefing,
+
+                source_photo_id,
+                source_photo_name,
+                source_photo_folder,
+
+                quality_score,
+                brand_fit_score,
+
+                family,
+                layout,
+                background_style,
+
+                headline,
+                support_text,
+                cta_text,
+                badge_text,
+                render_overrides_json,
+
+                final_filename,
+                drive_file_id,
+                drive_link,
+
+                logo_name,
+                logo_type,
+                logo_position,
+
+                status,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                ?, ?,
+                ?, ?,
+                ?, ?, ?,
+                ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?
+            )
+        """, (
             parent_code,
             revision_type,
 
             request,
             briefing,
 
-            source_photo_id,
-            source_photo_name,
-            source_photo_folder,
+            photo.get(
+                "drive_file_id"
+            ),
+            photo.get(
+                "filename"
+            ),
+            photo.get(
+                "folder"
+            ),
 
-            quality_score,
-            brand_fit_score,
+            photo.get(
+                "quality_score"
+            ),
+            photo.get(
+                "brand_fit_score"
+            ),
 
             family,
             layout,
             background_style,
 
-            headline,
-            support_text,
-            cta_text,
+            copy.get(
+                "headline"
+            ),
+            copy.get(
+                "support"
+            ),
+            copy.get(
+                "cta"
+            ),
             badge_text,
             render_overrides_json,
 
-            final_filename,
-            drive_file_id,
-            drive_link,
+            publication.get(
+                "filename"
+            ),
+            publication.get(
+                "drive_file",
+                {},
+            ).get(
+                "id"
+            ),
+            publication.get(
+                "drive_file",
+                {},
+            ).get(
+                "webViewLink"
+            ),
 
-            logo_name,
-            logo_type,
-            logo_position,
+            publication.get(
+                "logo_name"
+            ),
+            publication.get(
+                "logo_type"
+            ),
+            publication.get(
+                "logo_position"
+            ),
 
-            status,
-            created_at,
-            updated_at
+            "PENDING",
+            agora,
+            agora,
+        ))
+
+        creative_id = (
+            cursor.lastrowid
         )
-        VALUES (
-            ?, ?,
-            ?, ?,
-            ?, ?, ?,
-            ?, ?,
-            ?, ?, ?,
-            ?, ?, ?, ?, ?,
-            ?, ?, ?,
-            ?, ?, ?,
-            ?, ?, ?
+
+        creative_code = gerar_codigo(
+            creative_id
         )
-    """, (
-        parent_code,
-        revision_type,
 
-        request,
-        briefing,
+        conn.execute("""
+            UPDATE creatives
+            SET creative_code = ?
+            WHERE id = ?
+        """, (
+            creative_code,
+            creative_id,
+        ))
 
-        photo.get(
-            "drive_file_id"
-        ),
-        photo.get(
-            "filename"
-        ),
-        photo.get(
-            "folder"
-        ),
+        conn.commit()
 
-        photo.get(
-            "quality_score"
-        ),
-        photo.get(
-            "brand_fit_score"
-        ),
-
-        family,
-        layout,
-        background_style,
-
-        copy.get(
-            "headline"
-        ),
-        copy.get(
-            "support"
-        ),
-        copy.get(
-            "cta"
-        ),
-        badge_text,
-        render_overrides_json,
-
-        publication.get(
-            "filename"
-        ),
-        publication.get(
-            "drive_file",
-            {},
-        ).get(
-            "id"
-        ),
-        publication.get(
-            "drive_file",
-            {},
-        ).get(
-            "webViewLink"
-        ),
-
-        publication.get(
-            "logo_name"
-        ),
-        publication.get(
-            "logo_type"
-        ),
-        publication.get(
-            "logo_position"
-        ),
-
-        "PENDING",
-        agora,
-        agora,
-    ))
-
-    creative_id = (
-        cursor.lastrowid
-    )
-
-    creative_code = gerar_codigo(
-        creative_id
-    )
-
-    conn.execute("""
-        UPDATE creatives
-        SET creative_code = ?
-        WHERE id = ?
-    """, (
-        creative_code,
-        creative_id,
-    ))
-
-    conn.commit()
-    conn.close()
-
-    return creative_code
+        return creative_code
+    finally:
+        conn.close()
 
 
 def buscar_criativo(
     creative_code,
 ):
     conn = get_conn()
-
-    conn.row_factory = sqlite3.Row
-
-    row = conn.execute("""
-        SELECT *
-        FROM creatives
-        WHERE creative_code = ?
-    """, (
-        creative_code.upper(),
-    )).fetchone()
-
-    conn.close()
-
-    if not row:
-        return None
-
-    item = dict(
-        row
-    )
-
-    render_json = (
-        item.get(
-            "render_overrides_json"
-        )
-        or ""
-    )
-
     try:
-        item[
-            "render_overrides"
-        ] = (
-            json.loads(
-                render_json
-            )
-            if render_json
-            else {}
-        )
 
-    except Exception:
-        item[
-            "render_overrides"
-        ] = {}
+        conn.row_factory = sqlite3.Row
 
-    return item
+        row = conn.execute("""
+            SELECT *
+            FROM creatives
+            WHERE creative_code = ?
+        """, (
+            creative_code.upper(),
+        )).fetchone()
 
 
-def atualizar_status(
-    creative_code,
-    status,
-):
-    conn = get_conn()
+        if not row:
+            return None
 
-    agora = datetime.now().isoformat(
-        timespec="seconds"
-    )
-
-    cursor = conn.execute("""
-        UPDATE creatives
-        SET
-            status = ?,
-            updated_at = ?
-        WHERE creative_code = ?
-    """, (
-        status,
-        agora,
-        creative_code.upper(),
-    ))
-
-    conn.commit()
-
-    alterados = cursor.rowcount
-
-    conn.close()
-
-    return alterados > 0
-
-
-def listar_ultimos(
-    limite=10,
-):
-    conn = get_conn()
-
-    conn.row_factory = sqlite3.Row
-
-    rows = conn.execute("""
-        SELECT *
-        FROM creatives
-        ORDER BY id DESC
-        LIMIT ?
-    """, (
-        limite,
-    )).fetchall()
-
-    conn.close()
-
-    resultado = []
-
-    for row in rows:
         item = dict(
             row
         )
@@ -410,8 +330,96 @@ def listar_ultimos(
                 "render_overrides"
             ] = {}
 
-        resultado.append(
-            item
+        return item
+    finally:
+        conn.close()
+
+
+def atualizar_status(
+    creative_code,
+    status,
+):
+    conn = get_conn()
+    try:
+
+        agora = datetime.now().isoformat(
+            timespec="seconds"
         )
 
-    return resultado
+        cursor = conn.execute("""
+            UPDATE creatives
+            SET
+                status = ?,
+                updated_at = ?
+            WHERE creative_code = ?
+        """, (
+            status,
+            agora,
+            creative_code.upper(),
+        ))
+
+        conn.commit()
+
+        alterados = cursor.rowcount
+
+
+        return alterados > 0
+    finally:
+        conn.close()
+
+
+def listar_ultimos(
+    limite=10,
+):
+    conn = get_conn()
+    try:
+
+        conn.row_factory = sqlite3.Row
+
+        rows = conn.execute("""
+            SELECT *
+            FROM creatives
+            ORDER BY id DESC
+            LIMIT ?
+        """, (
+            limite,
+        )).fetchall()
+
+
+        resultado = []
+
+        for row in rows:
+            item = dict(
+                row
+            )
+
+            render_json = (
+                item.get(
+                    "render_overrides_json"
+                )
+                or ""
+            )
+
+            try:
+                item[
+                    "render_overrides"
+                ] = (
+                    json.loads(
+                        render_json
+                    )
+                    if render_json
+                    else {}
+                )
+
+            except Exception:
+                item[
+                    "render_overrides"
+                ] = {}
+
+            resultado.append(
+                item
+            )
+
+        return resultado
+    finally:
+        conn.close()
