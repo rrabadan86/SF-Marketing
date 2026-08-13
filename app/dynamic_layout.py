@@ -17,6 +17,85 @@ COLORS = {
 }
 
 
+# -------------------------------------------------------------
+# TEMAS DA ONDA (DYNAMIC)
+# -------------------------------------------------------------
+# Mesma composição, cores de fundo diferentes — todas da paleta
+# oficial. O texto é sempre branco; "accent" é a cor de destaque do CTA,
+# escolhida para contrastar com o fundo (nunca igual a ele).
+WAVE_THEMES = {
+    "coral": {
+        "bg": (243, 122, 115, 224),
+        "linha1": (17, 172, 176, 255),   # tiffany
+        "linha2": (255, 255, 255, 245),  # branca
+        "accent": "TIFFANY",
+    },
+    "tiffany": {
+        "bg": (17, 172, 176, 224),
+        "linha1": (243, 122, 115, 255),  # coral
+        "linha2": (255, 255, 255, 245),
+        "accent": "CORAL",
+    },
+    "escuro": {
+        "bg": (47, 43, 48, 235),         # charcoal
+        "linha1": (17, 172, 176, 255),   # tiffany
+        "linha2": (255, 255, 255, 245),
+        "accent": "TIFFANY",
+    },
+}
+
+
+def _sem_acentos(texto):
+    import unicodedata
+
+    texto = unicodedata.normalize(
+        "NFKD",
+        str(texto or ""),
+    )
+    return "".join(
+        c
+        for c in texto
+        if not unicodedata.combining(c)
+    ).lower()
+
+
+def detectar_tema_wave(pedido):
+    """
+    Escolhe o tema de fundo do Dynamic pela palavra-chave do pedido.
+    Padrão: coral (comportamento histórico, sem regressão).
+    """
+    texto = _sem_acentos(pedido)
+
+    if any(
+        termo in texto
+        for termo in [
+            "fundo tiffany",
+            "fundo azul",
+            "fundo verde",
+            "onda tiffany",
+            "estilo tiffany",
+            "versao tiffany",
+        ]
+    ):
+        return "tiffany"
+
+    if any(
+        termo in texto
+        for termo in [
+            "fundo escuro",
+            "fundo preto",
+            "fundo dark",
+            "fundo grafite",
+            "estilo escuro",
+            "versao escura",
+            "onda escura",
+        ]
+    ):
+        return "escuro"
+
+    return "coral"
+
+
 def fonte_path(peso="regular"):
     candidatos = []
 
@@ -292,7 +371,10 @@ def pontos_wave(
 
 def desenhar_wave_overlay(
     canvas,
+    tema=None,
 ):
+    tema = tema or WAVE_THEMES["coral"]
+
     overlay = Image.new(
         "RGBA",
         (
@@ -333,12 +415,7 @@ def desenhar_wave_overlay(
 
     draw.polygon(
         poligono,
-        fill=(
-            243,
-            122,
-            115,
-            224,
-        ),
+        fill=tema["bg"],
     )
 
     # linhas finas acima da onda
@@ -368,12 +445,7 @@ def desenhar_wave_overlay(
 
     draw.line(
         onda_tiffany,
-        fill=(
-            17,
-            172,
-            176,
-            255,
-        ),
+        fill=tema["linha1"],
         width=3,
     )
 
@@ -493,6 +565,7 @@ def desenhar_cta(
     y,
     emphasis=False,
     font_delta=0,
+    accent="TIFFANY",
 ):
     if not texto:
         return y
@@ -560,7 +633,7 @@ def desenhar_cta(
             ),
             radius=24,
             fill=COLORS[
-                "TIFFANY"
+                accent
             ],
             outline=COLORS[
                 "WHITE"
@@ -594,7 +667,7 @@ def desenhar_cta(
         texto,
         font=f,
         fill=COLORS[
-            "TIFFANY"
+            accent
         ],
     )
 
@@ -610,7 +683,7 @@ def desenhar_cta(
             y + h + 5,
         ),
         fill=COLORS[
-            "TIFFANY"
+            accent
         ],
         width=4,
     )
@@ -633,12 +706,28 @@ def render_wave(
         or {}
     )
 
+    tema_nome = (
+        overrides.get("wave_theme")
+        or detectar_tema_wave(pedido)
+    )
+    tema = WAVE_THEMES.get(
+        tema_nome,
+        WAVE_THEMES["coral"],
+    )
+
+    print(
+        "Dynamic wave theme:",
+        tema_nome,
+        flush=True,
+    )
+
     canvas = crop_foto(
         caminho_foto
     )
 
     canvas = desenhar_wave_overlay(
-        canvas
+        canvas,
+        tema,
     )
 
     draw = ImageDraw.Draw(
@@ -851,6 +940,7 @@ def render_wave(
                     0,
                 )
             ),
+            accent=tema["accent"],
         )
 
     return canvas
