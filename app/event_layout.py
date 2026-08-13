@@ -24,6 +24,8 @@ from adaptive_layout import (
     desenhar_multilinha,
 )
 
+from date_utils import extrair_data, extrair_horario, extrair_dia_semana
+
 
 WIDTH = 1080
 HEIGHT = 1350
@@ -123,107 +125,6 @@ def preparar_foto(
 # =========================================================
 # DATA / HORÁRIO
 # =========================================================
-
-MESES = (
-    "janeiro|fevereiro|março|marco|abril|maio|junho|"
-    "julho|agosto|setembro|outubro|novembro|dezembro"
-)
-
-
-def extrair_data(
-    pedido,
-):
-    texto = (
-        pedido
-        or ""
-    )
-
-    padroes = [
-        r"\b\d{1,2}/\d{1,2}(?:/\d{2,4})?\b",
-        rf"\b\d{{1,2}}\s+de\s+(?:{MESES})\b",
-    ]
-
-    for padrao in padroes:
-        match = re.search(
-            padrao,
-            texto,
-            flags=re.IGNORECASE,
-        )
-
-        if match:
-            return (
-                match
-                .group(0)
-                .strip()
-            )
-
-    return ""
-
-
-def extrair_horario(
-    pedido,
-):
-    texto = (
-        pedido
-        or ""
-    )
-
-    padroes = [
-        r"\b\d{1,2}:\d{2}\b",
-        r"\b\d{1,2}h\d{0,2}\b",
-        r"\b(?:às|as)\s+\d{1,2}(?::\d{2})?\b",
-    ]
-
-    for padrao in padroes:
-        match = re.search(
-            padrao,
-            texto,
-            flags=re.IGNORECASE,
-        )
-
-        if match:
-            valor = (
-                match
-                .group(0)
-                .strip()
-            )
-
-            return re.sub(
-                r"^(às|as)\s+",
-                "",
-                valor,
-                flags=re.IGNORECASE,
-            )
-
-    return ""
-
-
-def extrair_dia_semana(
-    pedido,
-):
-    texto = (
-        pedido
-        or ""
-    ).lower()
-
-    mapa = [
-        ("segunda", "SEGUNDA"),
-        ("terça", "TERÇA"),
-        ("terca", "TERÇA"),
-        ("quarta", "QUARTA"),
-        ("quinta", "QUINTA"),
-        ("sexta", "SEXTA"),
-        ("sábado", "SÁBADO"),
-        ("sabado", "SÁBADO"),
-        ("domingo", "DOMINGO"),
-    ]
-
-    for termo, saida in mapa:
-        if termo in texto:
-            return saida
-
-    return ""
-
 
 def metadata_evento(
     pedido,

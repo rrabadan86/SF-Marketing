@@ -18,6 +18,7 @@ from PIL import Image
 import face_framing
 import photo_style
 import dynamic_layout as dl
+import date_utils
 from seasonal_layout import ajustar_foto_na_moldura
 
 
@@ -149,6 +150,25 @@ def test_render_wave_temas():
             render_overrides={"wave_theme": tema},
         )
         assert canvas.size == (dl.WIDTH, dl.HEIGHT)
+
+
+# ---------------------------------------------------------------
+# date_utils
+# ---------------------------------------------------------------
+
+def test_extrair_data():
+    assert date_utils.extrair_data("evento 16/08 legal") == "16/08"
+    assert not date_utils.extrair_data("sem data aqui")
+
+
+def test_extrair_horario():
+    assert date_utils.extrair_horario("comeca as 9h") == "9h"
+    assert not date_utils.extrair_horario("sem hora")
+
+
+def test_extrair_dia_semana():
+    assert date_utils.extrair_dia_semana("no sabado") == "SÁBADO"
+    assert not date_utils.extrair_dia_semana("qualquer dia")
 
 
 if __name__ == "__main__":
