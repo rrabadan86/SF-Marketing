@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
 from seasonal_layout import ajustar_foto_na_moldura
-from adaptive_layout import medir, hex_rgb, fonte
+from adaptive_layout import medir, hex_rgb, fonte, quebrar
 
 
 WIDTH = 1080
@@ -99,58 +99,6 @@ def detectar_tema_wave(pedido):
         return "escuro"
 
     return "coral"
-
-
-def quebrar(draw, texto, font, largura_max):
-    palavras = (
-        texto
-        or ""
-    ).split()
-
-    if not palavras:
-        return []
-
-    linhas = []
-    atual = []
-
-    for palavra in palavras:
-        tentativa = " ".join(
-            atual + [palavra]
-        )
-
-        largura, _ = medir(
-            draw,
-            tentativa,
-            font,
-        )
-
-        if (
-            largura <= largura_max
-            or not atual
-        ):
-            atual.append(
-                palavra
-            )
-
-        else:
-            linhas.append(
-                " ".join(
-                    atual
-                )
-            )
-
-            atual = [
-                palavra
-            ]
-
-    if atual:
-        linhas.append(
-            " ".join(
-                atual
-            )
-        )
-
-    return linhas
 
 
 def desenhar_multilinha(

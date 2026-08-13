@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
 from dynamic_layout import detectar_tema_wave
-from adaptive_layout import medir, hex_rgb, fonte
+from adaptive_layout import medir, hex_rgb, fonte, quebrar
 
 
 WIDTH = 1080
@@ -22,63 +22,6 @@ COLORS = {
     "CAMPAIGN_YELLOW": "#FFD600",
     "CAMPAIGN_GREEN": "#005A4E",
 }
-
-
-def quebrar_texto(
-    draw,
-    texto,
-    font,
-    largura_max,
-):
-    palavras = (
-        texto
-        or ""
-    ).split()
-
-    if not palavras:
-        return []
-
-    linhas = []
-    atual = []
-
-    for palavra in palavras:
-        tentativa = " ".join(
-            atual + [palavra]
-        )
-
-        largura, _ = medir(
-            draw,
-            tentativa,
-            font,
-        )
-
-        if (
-            largura <= largura_max
-            or not atual
-        ):
-            atual.append(
-                palavra
-            )
-
-        else:
-            linhas.append(
-                " ".join(
-                    atual
-                )
-            )
-
-            atual = [
-                palavra
-            ]
-
-    if atual:
-        linhas.append(
-            " ".join(
-                atual
-            )
-        )
-
-    return linhas
 
 
 def desenhar_multilinha(
@@ -98,7 +41,7 @@ def desenhar_multilinha(
         peso,
     )
 
-    linhas = quebrar_texto(
+    linhas = quebrar(
         draw,
         texto,
         font,
@@ -156,7 +99,7 @@ def tamanho_automatico(
             peso,
         )
 
-        linhas = quebrar_texto(
+        linhas = quebrar(
             draw,
             texto,
             font,

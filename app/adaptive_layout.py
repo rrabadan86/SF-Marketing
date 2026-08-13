@@ -81,6 +81,35 @@ def hex_rgb(valor):
     )
 
 
+def quebrar(draw, texto, font, largura_max):
+    """
+    Quebra o texto em linhas que cabem em ``largura_max``. Palavra
+    isolada maior que a largura fica sozinha na linha (não some).
+    """
+    palavras = (texto or "").split()
+
+    if not palavras:
+        return []
+
+    linhas = []
+    atual = []
+
+    for palavra in palavras:
+        tentativa = " ".join(atual + [palavra])
+        largura, _ = medir(draw, tentativa, font)
+
+        if largura <= largura_max or not atual:
+            atual.append(palavra)
+        else:
+            linhas.append(" ".join(atual))
+            atual = [palavra]
+
+    if atual:
+        linhas.append(" ".join(atual))
+
+    return linhas
+
+
 def altura_linhas(
     draw,
     texto,
