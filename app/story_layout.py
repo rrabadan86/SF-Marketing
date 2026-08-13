@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from face_framing import detectar_foco_rosto
 from photo_style import tratar_foto
-from dynamic_layout import detectar_tema_wave
+from dynamic_layout import detectar_tema_wave, pedido_tem_aula_experimental
 from adaptive_layout import medir, hex_rgb, fonte, quebrar, desenhar_multilinha
 
 
@@ -57,26 +57,6 @@ def tamanho_automatico(
 
     return int(
         min_size
-    )
-
-
-def pedido_tem_aula_experimental(
-    pedido,
-):
-    texto = (
-        pedido
-        or ""
-    ).lower()
-
-    return any(
-        termo in texto
-        for termo in [
-            "aula experimental",
-            "experimental",
-            "primeira aula",
-            "aula teste",
-            "aula de teste",
-        ]
     )
 
 
