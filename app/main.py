@@ -311,8 +311,13 @@ def detectar_substituicao_literal(
     - substitua somente "X" por "Y"
     - substituir o texto "X" por "Y"
     - altere apenas a frase "X" para "Y"
+    - onde tem "X" troque para "Y"
+    - onde aparece "X" coloque "Y"
 
-    Aceita aspas normais e curvas.
+    Aceita aspas normais e curvas e MÚLTIPLAS substituições na mesma
+    mensagem (ex.: "troque 'A' por 'B'. Onde tem 'C' troque para 'D'").
+    Retorna uma LISTA de pares (antigo, novo) na ordem em que aparecem,
+    ou ``None`` quando não há nenhuma.
     """
 
     if not instrucao:
@@ -326,69 +331,73 @@ def detectar_substituicao_literal(
         instrucao,
     ).strip()
 
+    aspas_abre = r'["“”]'
+    aspas_fecha = r'["“”]'
+    ligacao = r"\s+(?:por|para)\s+"
+
     verbo = (
         r"(?:troque|trocar|substitua|substituir|"
         r"altere|alterar|mude|mudar)"
     )
-
-    modificador = (
-        r"(?:\s+(?:apenas|somente|só|so))?"
-    )
-
+    modificador = r"(?:\s+(?:apenas|somente|só|so))?"
     alvo = (
         r"(?:\s+(?:a\s+frase|o\s+texto|a\s+mensagem|"
         r"o\s+cta|cta))?"
     )
 
-    aspas_abre = r'["“”]'
-    aspas_fecha = r'["“”]'
-
-    ligacao = r"\s+(?:por|para)\s+"
-
-    padrao = (
+    # Padrão 1 — verbo primeiro: troque [a frase] "X" por "Y"
+    padrao_verbo = (
         verbo
         + modificador
         + alvo
         + r"\s*"
-        + aspas_abre
-        + r"(.+?)"
-        + aspas_fecha
+        + aspas_abre + r"(.+?)" + aspas_fecha
         + ligacao
-        + aspas_abre
-        + r"(.+?)"
-        + aspas_fecha
+        + aspas_abre + r"(.+?)" + aspas_fecha
     )
 
-    match = re.search(
-        padrao,
-        texto,
-        flags=re.IGNORECASE,
+    # Padrão 2 — "onde tem/aparece "X" <verbo/coloque> [por|para] "Y""
+    verbo_pos = (
+        r"(?:" + verbo[3:-1] + r"|coloque|colocar|ponha|por)"
+    )
+    padrao_onde = (
+        r"onde\s+(?:tem|houver|há|ha|estiver|aparece|aparecer|"
+        r"tiver|vir)\s+"
+        + aspas_abre + r"(.+?)" + aspas_fecha
+        + r"\s*,?\s*"
+        + verbo_pos
+        + modificador
+        + r"\s+(?:por|para)?\s*"
+        + aspas_abre + r"(.+?)" + aspas_fecha
     )
 
-    if not match:
+    encontrados = []
+    vistos = set()
+
+    for padrao in (padrao_onde, padrao_verbo):
+        for match in re.finditer(
+            padrao,
+            texto,
+            flags=re.IGNORECASE,
+        ):
+            antigo = match.group(1).strip()
+            novo = match.group(2).strip()
+            if not antigo:
+                continue
+            chave = (antigo.lower(), novo.lower())
+            if chave in vistos:
+                continue
+            vistos.add(chave)
+            encontrados.append(
+                (match.start(), (antigo, novo))
+            )
+
+    if not encontrados:
         return None
 
-    antigo = (
-        match.group(
-            1
-        )
-        .strip()
-    )
-
-    novo = (
-        match.group(
-            2
-        )
-        .strip()
-    )
-
-    if not antigo:
-        return None
-
-    return (
-        antigo,
-        novo,
-    )
+    # Ordena pela posição no texto para aplicar na ordem lida.
+    encontrados.sort(key=lambda item: item[0])
+    return [par for _, par in encontrados]
 
 
 

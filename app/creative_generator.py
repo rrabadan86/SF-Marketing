@@ -597,53 +597,65 @@ def aplicar_substituicao_literal(
     substituicao,
 ):
     """
-    Troca uma frase somente onde ela realmente existe.
+    Troca uma ou mais frases somente onde elas realmente existem.
     Não pede nova copy à IA e não altera outros campos.
+
+    ``substituicao`` pode ser um único par ``(antigo, novo)`` ou uma
+    LISTA de pares (várias trocas na mesma mensagem).
     """
 
     if not substituicao:
         return copy
 
-    antigo, novo = substituicao
-
-    encontrou = False
-
-    for campo in (
-        "headline",
-        "support",
-        "cta",
+    # Normaliza para uma lista de pares.
+    if (
+        isinstance(substituicao, tuple)
+        and len(substituicao) == 2
+        and isinstance(substituicao[0], str)
     ):
-        valor = (
-            copy.get(
-                campo
+        pares = [substituicao]
+    else:
+        pares = list(substituicao)
+
+    nao_encontrados = []
+
+    for antigo, novo in pares:
+        alterou_algum = False
+
+        for campo in (
+            "headline",
+            "support",
+            "cta",
+        ):
+            valor = (
+                copy.get(campo)
+                or ""
             )
-            or ""
-        )
 
-        valor_novo, alterou = (
-            substituir_case_insensitive(
-                valor,
-                antigo,
-                novo,
+            valor_novo, alterou = (
+                substituir_case_insensitive(
+                    valor,
+                    antigo,
+                    novo,
+                )
             )
-        )
 
-        if alterou:
-            copy[
-                campo
-            ] = valor_novo
+            if alterou:
+                copy[campo] = valor_novo
+                alterou_algum = True
+                # Cada par troca apenas a primeira ocorrência.
+                break
 
-            encontrou = True
+        if not alterou_algum:
+            nao_encontrados.append(antigo)
 
-            # A instrução é "substitua a frase X por Y".
-            # Alteramos apenas a primeira ocorrência encontrada.
-            break
-
-    if not encontrou:
+    # Só falha se NENHUMA das trocas pedidas foi aplicada — assim uma
+    # frase escrita com pequena diferença não descarta as demais.
+    if len(nao_encontrados) == len(pares):
         raise ValueError(
             "EDIÇÃO LITERAL: não encontrei a frase "
-            f'"{antigo}" no headline, texto de apoio ou CTA '
-            "do criativo anterior."
+            f'"{nao_encontrados[0]}" no headline, texto de apoio ou '
+            "CTA do criativo anterior."
         )
 
     return copy
