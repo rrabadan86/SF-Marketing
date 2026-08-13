@@ -152,6 +152,42 @@ def send_photo(
     response.raise_for_status()
 
 
+def send_document(
+    chat_id,
+    caminho,
+    legenda=None,
+):
+    """
+    Envia o arquivo SEM a compressão do Telegram (sendPhoto reencoda e
+    reduz; sendDocument preserva o JPEG original em alta). Usado para
+    entregar a versão HD do criativo direto no chat.
+    """
+    with open(
+        caminho,
+        "rb",
+    ) as arquivo:
+        response = requests.post(
+            f"{BASE_URL}/sendDocument",
+            data={
+                "chat_id": chat_id,
+                "caption": (
+                    legenda
+                    or ""
+                ),
+            },
+            files={
+                "document": (
+                    "criativo.jpg",
+                    arquivo,
+                    "image/jpeg",
+                ),
+            },
+            timeout=120,
+        )
+
+    response.raise_for_status()
+
+
 # =========================================================
 # /REFAZER
 # =========================================================
@@ -3333,6 +3369,22 @@ def executar_criacao(
             "CHK 11 - depois do send_photo",
             flush=True,
         )
+
+        # Versão em alta (sem a compressão do Telegram), para baixar e
+        # postar direto do chat. Falha aqui não impede o resto do fluxo.
+        try:
+            send_document(
+                chat_id,
+                caminho_final,
+                "🖼 Versão em alta (sem compressão)",
+            )
+        except Exception as erro_doc:
+            print(
+                "Aviso: falha ao enviar versão HD:",
+                type(erro_doc).__name__,
+                str(erro_doc),
+                flush=True,
+            )
 
         if drive_link:
             print(
