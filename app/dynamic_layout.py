@@ -872,9 +872,9 @@ def render_wave(
     )
 
     y += (
-        44
+        60
         if ajuste_fino
-        else 38
+        else 54
     )
 
     apoio = (
@@ -924,11 +924,11 @@ def render_wave(
     cta_y = min(
         y
         + (
-            26
+            42
             if ajuste_fino
-            else 18
+            else 34
         ),
-        1280,
+        1300,
     )
 
     if (
@@ -1081,7 +1081,7 @@ def render_bold(
         fill=COLORS["WHITE"],
         width=5,
     )
-    y += 40
+    y += 54
 
     apoio = copy.get("support") or ""
     y = desenhar_multilinha(
@@ -1103,7 +1103,7 @@ def render_bold(
             draw,
             cta,
             x,
-            min(y + 22, 1290),
+            min(y + 36, 1300),
             emphasis=True,
             accent=tema["accent"],
         )
@@ -1179,7 +1179,7 @@ def render_split(
         fill=COLORS["WHITE"],
         width=5,
     )
-    y += 38
+    y += 52
 
     apoio = copy.get("support") or ""
     y = desenhar_multilinha(
@@ -1201,7 +1201,7 @@ def render_split(
             draw,
             cta,
             x,
-            min(y + 20, 1290),
+            min(y + 32, 1300),
             emphasis=True,
             accent=tema["accent"],
         )

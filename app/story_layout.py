@@ -997,7 +997,8 @@ def render_story(
 
     text_x = 74
     text_w = 860
-    y = 1170
+    # Um respiro a mais entre a onda (wave_y=1110) e o topo do texto.
+    y = 1190
 
     copa_story = eh_copa_slim_story(
         family,
