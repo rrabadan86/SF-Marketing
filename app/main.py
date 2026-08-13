@@ -1386,6 +1386,38 @@ def pedido_pede_menos_zoom(
     }
 
 
+def pedido_quer_corpo_inteiro(
+    instrucao,
+):
+    """
+    Detecta o pedido explícito de "corpo inteiro / pernas".
+
+    Numa moldura de feed (horizontal) isso é geometricamente impossível
+    sem cortar; o formato certo é o Story (vertical). O chamador usa isto
+    para converter o /refazer em geração de Story.
+    """
+
+    texto = normalizar_instrucao(
+        instrucao
+    )
+
+    if not texto:
+        return False
+
+    return any(
+        termo in texto
+        for termo in [
+            "corpo inteiro",
+            "corpo todo",
+            "de corpo inteiro",
+            "mostrar o corpo todo",
+            "mostrar as pernas",
+            "ver as pernas",
+            "as pernas",
+        ]
+    )
+
+
 def pedido_pede_mais_headroom(
     instrucao,
 ):
@@ -4029,6 +4061,61 @@ while True:
                         send_message(
                             chat_id,
                             "❌  Criativo não encontrado.",
+                        )
+
+                        continue
+
+                    # Pedido de "corpo inteiro" num feed horizontal: em vez
+                    # de gerar uma arte que não mostra o corpo todo, converte
+                    # para Story (vertical), onde o corpo cabe. Espelha o
+                    # caminho do comando /story.
+                    if (
+                        instrucao
+                        and pedido_quer_corpo_inteiro(instrucao)
+                        and output_format_do_item(item) == "FEED"
+                    ):
+                        send_message(
+                            chat_id,
+                            "📱 Você pediu o corpo inteiro. Numa arte de "
+                            "feed (horizontal) não dá para mostrar o corpo "
+                            "todo sem cortar, então vou gerar em Story "
+                            "(vertical), onde ele cabe.",
+                        )
+
+                        executar_criacao(
+                            chat_id,
+                            item.get("request") or "",
+                            parent_code=codigo,
+                            revision_type="STORY",
+                            foto_fixa_id=item.get(
+                                "source_photo_id"
+                            ),
+                            briefing_fixo=item.get(
+                                "briefing"
+                            ),
+                            family_fixa=item.get(
+                                "family"
+                            ),
+                            layout_fixo=str(
+                                item.get("layout") or ""
+                            ).replace(
+                                "STORY_",
+                                "",
+                                1,
+                            ),
+                            background_style_fixo=item.get(
+                                "background_style"
+                            ),
+                            render_request_fixo=item.get(
+                                "request"
+                            ),
+                            copy_fixa=copy_estruturada_do_item(
+                                item
+                            ),
+                            render_overrides=render_overrides_do_item(
+                                item
+                            ),
+                            output_format="STORY",
                         )
 
                         continue
