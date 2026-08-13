@@ -16,6 +16,8 @@ from adaptive_layout import (
     calcular_bloco,
 )
 
+from face_framing import detectar_foco_rosto
+
 
 WIDTH = 1080
 HEIGHT = 1350
@@ -1484,6 +1486,17 @@ def render_photo(
     foto_w = 990
     foto_h = 970
 
+    foco = detectar_foco_rosto(
+        foto_original,
+        default=(0.5, 0.43),
+    )
+
+    print(
+        "Seasonal Photo framing: foco=",
+        foco,
+        flush=True,
+    )
+
     foto = ImageOps.fit(
         foto_original,
         (
@@ -1491,10 +1504,7 @@ def render_photo(
             foto_h,
         ),
         method=Image.Resampling.LANCZOS,
-        centering=(
-            0.5,
-            0.43,
-        ),
+        centering=foco,
     )
 
     mascara = Image.new(
@@ -2132,6 +2142,19 @@ def render_promo(
             "RGB"
         )
 
+        # Centralização horizontal automática no rosto (quando o usuário
+        # não deu um foco explícito). No banner horizontal mexemos só no
+        # eixo X, para não cortar tronco/medalha no eixo Y.
+        foco_rosto = detectar_foco_rosto(
+            foto_original,
+            default=None,
+        )
+        focus_x_padrao = (
+            foco_rosto[0]
+            if foco_rosto
+            else 0.5
+        )
+
         foto_x = 82
         foto_y = 92
         foto_w = 916
@@ -2162,9 +2185,9 @@ def render_promo(
         photo_focus_x = float(
             render_overrides.get(
                 "photo_focus_x",
-                0.5,
+                focus_x_padrao,
             )
-            or 0.5
+            or focus_x_padrao
         )
 
         photo_focus_y = float(
