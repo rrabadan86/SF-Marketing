@@ -1297,6 +1297,13 @@ def pedido_pede_menos_zoom(
         "mostrar mais",
         "mostre mais",
         "quero ver mais",
+        "corpo inteiro",
+        "corpo todo",
+        "de corpo inteiro",
+        "mostrar o corpo todo",
+        "mostrar as pernas",
+        "ver as pernas",
+        "as pernas",
     ]
 
     detectou_zoom_out = any(
@@ -1359,6 +1366,12 @@ def pedido_pede_menos_zoom(
             "ver a medalha",
             "aparece pouco",
             "aparecendo pouco",
+            "corpo inteiro",
+            "corpo todo",
+            "de corpo inteiro",
+            "mostrar as pernas",
+            "ver as pernas",
+            "as pernas",
         ]
     ):
         zoom = 0.88
