@@ -601,8 +601,18 @@ def refinar_alvo_tipografia(
 
     campos = [
         ("headline", item.get("headline")),
-        ("support", item.get("support_text")),
-        ("cta", item.get("cta_text")),
+        (
+            "support",
+            item.get("support_text")
+            if item.get("support_text") is not None
+            else item.get("support"),
+        ),
+        (
+            "cta",
+            item.get("cta_text")
+            if item.get("cta_text") is not None
+            else item.get("cta"),
+        ),
     ]
 
     melhor = None
@@ -2467,6 +2477,7 @@ def detectar_destaque_trecho(
 
 def analisar_refazer(
     instrucao,
+    copy_atual=None,
 ):
     literal = detectar_substituicao_literal(
         instrucao
@@ -2490,6 +2501,16 @@ def analisar_refazer(
     typography = detectar_ajuste_tipografia(
         instrucao
     )
+
+    # Quando o usuário nomeia o texto ("a fonte de Circuito Slim"),
+    # corrige o alvo pela copy real — assim o log já reflete a verdade.
+    if typography and copy_atual:
+        alvo_refinado = refinar_alvo_tipografia(
+            instrucao,
+            copy_atual,
+        )
+        if alvo_refinado:
+            typography["target"] = alvo_refinado
 
     estrito = instrucao_modo_estrito(
         instrucao
@@ -4369,7 +4390,10 @@ while True:
                         )
 
                     analise_refazer = analisar_refazer(
-                        instrucao
+                        instrucao,
+                        copy_atual=copy_estruturada_do_item(
+                            item
+                        ),
                     )
 
                     parametros_refazer = {
@@ -4463,19 +4487,6 @@ while True:
                             ajuste_atual = analise_refazer[
                                 "typography_adjustment"
                             ]
-
-                            # Se o usuário nomeou o texto (ex.: "a fonte de
-                            # Circuito Slim"), corrige o alvo pela copy real.
-                            alvo_refinado = (
-                                refinar_alvo_tipografia(
-                                    instrucao,
-                                    item,
-                                )
-                            )
-                            if alvo_refinado:
-                                ajuste_atual[
-                                    "target"
-                                ] = alvo_refinado
 
                             chave_delta = (
                                 ajuste_atual[
