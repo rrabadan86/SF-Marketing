@@ -4207,6 +4207,21 @@ while True:
                             flush=True,
                         )
 
+                    # Foto nomeada no meio da frase ("com a foto X.jpeg")
+                    # é pedido explícito → sobrepõe os filtros de seleção.
+                    foto_nomeada_criar = (
+                        extrair_foto_exata_trocarfoto(
+                            pedido
+                        )
+                    )
+
+                    if foto_nomeada_criar:
+                        print(
+                            "Foto específica no /criar:",
+                            foto_nomeada_criar,
+                            flush=True,
+                        )
+
                     executar_criacao(
                         chat_id,
                         pedido_sem_copy_obrigatoria(
@@ -4214,6 +4229,9 @@ while True:
                         ),
                         copy_override=(
                             copy_override_criar
+                        ),
+                        foto_fixa_nome=(
+                            foto_nomeada_criar
                         ),
                     )
 
