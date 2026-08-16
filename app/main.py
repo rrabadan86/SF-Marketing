@@ -2942,6 +2942,83 @@ def pedido_sem_copy_obrigatoria(
     )
 
 
+def detectar_sem_copy(
+    pedido,
+):
+    """
+    Detecta o pedido de NÃO colocar texto principal (headline + apoio).
+    O CTA/badge, se especificado, é preservado à parte.
+
+    Ex.: "não escreva nada na copy", "sem copy", "sem texto",
+    "não coloque texto", "sem legenda".
+    """
+    if not pedido:
+        return False
+
+    texto = normalizar_instrucao(pedido)
+
+    padroes = [
+        r"nao\s+escreva\s+nada\s+na\s+copy",
+        r"nao\s+escreva\s+(?:nenhuma\s+)?copy",
+        r"sem\s+copy\b",
+        r"sem\s+texto\s+na\s+copy",
+        r"sem\s+texto\s+de\s+apoio",
+        r"nao\s+coloque\s+(?:nenhum\s+)?texto",
+        r"sem\s+nenhum\s+texto",
+        r"sem\s+legenda",
+        r"nao\s+escreva\s+nada\b",
+    ]
+
+    return any(
+        re.search(p, texto)
+        for p in padroes
+    )
+
+
+def detectar_cta_literal(
+    pedido,
+):
+    """
+    Detecta o texto exato do CTA/badge pedido:
+    - "informando no CTA 5º Lugar"
+    - "no CTA escreva 5º Lugar"
+    - "CTA: 5º Lugar"
+    - "cta 5º Lugar"
+
+    Retorna o texto do CTA (sem reescrita) ou None. Para na primeira
+    pontuação forte / nova instrução.
+    """
+    if not pedido:
+        return None
+
+    texto = re.sub(r"\s+", " ", pedido).strip()
+
+    padroes = [
+        r"(?:informando|informe|escreva|coloque|ponha|"
+        r"escrever|colocar)\s+(?:no|o|um|a)?\s*cta\s*"
+        r"(?:com|:)?\s*[\"“']?(.+?)[\"”']?"
+        r"(?=[.!\n]|$)",
+        r"\bcta\s*[:=]\s*[\"“']?(.+?)[\"”']?(?=[.!\n]|$)",
+        r"\bno\s+cta\s+"
+        r"(?:escreva|coloque|ponha|informe|com|:)?\s*"
+        r"[\"“']?(.+?)[\"”']?(?=[.!\n]|$)",
+    ]
+
+    for padrao in padroes:
+        match = re.search(
+            padrao,
+            texto,
+            flags=re.IGNORECASE,
+        )
+        if match:
+            cta = match.group(1).strip().strip("\"“”'")
+            # Descarta capturas vazias ou puramente conectoras.
+            if cta and len(cta) >= 2:
+                return cta
+
+    return None
+
+
 # =========================================================
 # /TROCARFOTO COM INSTRUÇÃO
 # =========================================================
@@ -4194,18 +4271,46 @@ while True:
                         )
                     )
 
-                    copy_override_criar = None
+                    copy_override_criar = {}
 
                     if copy_obrigatoria:
-                        copy_override_criar = {
-                            "support": copy_obrigatoria
-                        }
+                        copy_override_criar["support"] = (
+                            copy_obrigatoria
+                        )
 
                         print(
                             "Copy obrigatória detectada no /criar:",
                             copy_obrigatoria,
                             flush=True,
                         )
+
+                    # "não escreva nada na copy" -> esvazia título + apoio
+                    # (o CTA/badge, se pedido, é preservado abaixo).
+                    if detectar_sem_copy(pedido):
+                        copy_override_criar["headline"] = ""
+                        copy_override_criar["support"] = ""
+                        print(
+                            "Sem copy detectado no /criar "
+                            "(headline+apoio vazios).",
+                            flush=True,
+                        )
+
+                    # CTA literal pelo pedido ("informe no CTA 5º Lugar").
+                    cta_literal_criar = detectar_cta_literal(
+                        pedido
+                    )
+                    if cta_literal_criar:
+                        copy_override_criar["cta"] = (
+                            cta_literal_criar
+                        )
+                        print(
+                            "CTA literal detectado no /criar:",
+                            cta_literal_criar,
+                            flush=True,
+                        )
+
+                    if not copy_override_criar:
+                        copy_override_criar = None
 
                     # Foto nomeada no meio da frase ("com a foto X.jpeg")
                     # é pedido explícito → sobrepõe os filtros de seleção.
