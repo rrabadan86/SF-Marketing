@@ -2278,6 +2278,59 @@ def detectar_ajustes_visuais_cirurgicos(
                 0.24,
             )
 
+    # Nudge vertical explícito: "suba/desça a foto", "mais para cima/baixo".
+    # Define uma âncora vertical (photo_anchor_y) que VENCE o anchor do
+    # avoid_head_crop no renderer. Maior = assunto sobe (mostra menos fundo
+    # acima da cabeça); menor = assunto desce.
+    if not preservar_enquadramento:
+        subir_foto = any(
+            termo in texto
+            for termo in [
+                "suba a foto",
+                "sobe a foto",
+                "subir a foto",
+                "foto mais para cima",
+                "mais para cima",
+                "foto para cima",
+                "levante a foto",
+                "puxe a foto para cima",
+                "cabeca mais para cima",
+                "cabeça mais para cima",
+                "cabeca no topo",
+                "cabeça no topo",
+            ]
+        )
+
+        descer_foto = any(
+            termo in texto
+            for termo in [
+                "abaixe a foto",
+                "abaixar a foto",
+                "desca a foto",
+                "descer a foto",
+                "desce a foto",
+                "foto mais para baixo",
+                "mais para baixo",
+                "foto para baixo",
+            ]
+        )
+
+        forte_nudge = any(
+            termo in texto
+            for termo in [
+                "bastante",
+                "bem mais",
+                "muito",
+            ]
+        )
+
+        if subir_foto:
+            ajustes["photo_anchor_y"] = (
+                0.26 if forte_nudge else 0.15
+            )
+        elif descer_foto:
+            ajustes["photo_anchor_y"] = 0.0
+
     if (
         not preservar_enquadramento
         and any(
