@@ -4327,6 +4327,23 @@ while True:
                             flush=True,
                         )
 
+                    # Pistas de enquadramento/visual do /refazer também
+                    # valem na criação: "sem cortar a cabeça", "mais/menos
+                    # zoom", "centralizada", foco, etc.
+                    render_overrides_criar = (
+                        detectar_ajustes_visuais_cirurgicos(
+                            pedido
+                        )
+                        or {}
+                    )
+
+                    if render_overrides_criar:
+                        print(
+                            "Enquadramento no /criar:",
+                            render_overrides_criar,
+                            flush=True,
+                        )
+
                     executar_criacao(
                         chat_id,
                         pedido_sem_copy_obrigatoria(
@@ -4337,6 +4354,10 @@ while True:
                         ),
                         foto_fixa_nome=(
                             foto_nomeada_criar
+                        ),
+                        render_overrides=(
+                            render_overrides_criar
+                            or None
                         ),
                     )
 
