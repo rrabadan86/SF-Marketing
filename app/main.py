@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import threading
 import unicodedata
 import requests
 
@@ -4296,6 +4297,79 @@ while True:
                 # =============================================
 
                 if (
+                    lower == "/sincronizar"
+                    or lower == "/sincronizarfotos"
+                    or lower == "/indexar"
+                ):
+                    def _sincronizar_fotos(chat_id_alvo):
+                        try:
+                            import photo_indexer
+
+                            novas = (
+                                photo_indexer.sincronizar_e_contar()
+                            )
+
+                            if not novas:
+                                send_message(
+                                    chat_id_alvo,
+                                    "✅ Tudo sincronizado — nenhuma "
+                                    "foto nova no Drive.",
+                                )
+                                return
+
+                            send_message(
+                                chat_id_alvo,
+                                f"🔄 {novas} foto(s) nova(s) "
+                                "encontrada(s). Indexando... "
+                                "(pode levar alguns minutos)",
+                            )
+
+                            photo_indexer.indexar_fotos(
+                                limite=novas
+                            )
+
+                            restantes = (
+                                photo_indexer.contar_pendentes()
+                            )
+                            feitas = novas - restantes
+
+                            msg = (
+                                "✅ Sincronização concluída: "
+                                f"{feitas} foto(s) indexada(s)."
+                            )
+                            if restantes:
+                                msg += (
+                                    f" {restantes} não entraram — "
+                                    "rode /sincronizar de novo."
+                                )
+
+                            send_message(
+                                chat_id_alvo,
+                                msg,
+                            )
+
+                        except Exception as erro_sync:
+                            send_message(
+                                chat_id_alvo,
+                                "❌ Erro na sincronização: "
+                                f"{erro_sync}",
+                            )
+
+                    send_message(
+                        chat_id,
+                        "🔄 Iniciando sincronização das fotos "
+                        "do Drive...",
+                    )
+
+                    threading.Thread(
+                        target=_sincronizar_fotos,
+                        args=(chat_id,),
+                        daemon=True,
+                    ).start()
+
+                    continue
+
+                if (
                     lower == "/criar"
                     or lower.startswith(
                         "/criar "
@@ -5397,6 +5471,10 @@ while True:
                         "/trocarfoto <CÓDIGO> <critério> — troca só a foto\n"
                         "/story <CÓDIGO> — converte um feed em story\n"
                         "/aprovar <CÓDIGO> · /historico\n\n"
+                        "FOTOS\n"
+                        "/sincronizar — indexa fotos novas do Drive\n"
+                        "(depois, referencie pelo nome: /criar ... com a "
+                        "foto NOME.jpg)\n\n"
                         "ESTILOS (Dynamic) — inclua no pedido\n"
                         "Fundo: \"fundo escuro\", \"fundo tiffany\"\n"
                         "Composição: \"estilo foto em destaque\", \"estilo dividido\"\n\n"

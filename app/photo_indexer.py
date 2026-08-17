@@ -50,6 +50,26 @@ def flatten_images(node):
     return imagens
 
 
+def contar_pendentes():
+    """Quantas fotos estão no banco aguardando indexação (indexed = 0)."""
+    conn = get_db()
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM photos WHERE indexed = 0"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def sincronizar_e_contar():
+    """
+    Atualiza o inventário do Drive (insere arquivos novos como indexed=0)
+    e devolve quantas fotos ficaram pendentes de indexação.
+    """
+    sincronizar_inventario()
+    return contar_pendentes()
+
+
 def sincronizar_inventario():
     inventario = gerar_inventario_fotos()
     imagens = flatten_images(inventario)
