@@ -916,6 +916,34 @@ def _degrade_inferior(
     )
 
 
+def _degrade_hero(canvas, cor, y_solido, fade=280):
+    """
+    Degradê da composição HERO: totalmente OPACO (cor sólida) a partir de
+    ``y_solido`` para baixo — garantindo que o texto branco fique sobre
+    fundo cheio, sem a foto vazar e apagar a leitura — e uma transição
+    suave de ``fade`` px acima disso até a foto.
+    """
+    w, h = canvas.size
+    y_solido = int(max(0, min(y_solido, h)))
+    inicio = max(0, y_solido - fade)
+
+    mascara = Image.new("L", (1, h), 0)
+    for y in range(inicio, h):
+        if y >= y_solido:
+            alpha = 255
+        else:
+            alpha = int(255 * ((y - inicio) / max(1, fade)))
+        mascara.putpixel((0, y), alpha)
+    mascara = mascara.resize((w, h))
+
+    overlay = Image.new("RGB", (w, h), cor)
+    return Image.composite(
+        overlay,
+        canvas.convert("RGB"),
+        mascara,
+    )
+
+
 def detectar_composicao(pedido):
     """
     Escolhe a composição do Dynamic pela palavra-chave. Padrão: a onda
@@ -1083,21 +1111,22 @@ def render_hero(
         else:
             tema_nome = "tiffany"
 
+    # Teal um pouco mais fundo que o tiffany puro para o branco ter
+    # contraste (branco sobre teal claro fica ilegível).
+    def _fundo(cor, fator):
+        return tuple(int(c * fator) for c in cor)
+
     if tema_nome == "coral":
-        cor_grad = hex_rgb(COLORS["CORAL"])
+        cor_grad = _fundo(hex_rgb(COLORS["CORAL"]), 0.9)
     elif tema_nome == "escuro":
         cor_grad = hex_rgb(COLORS["CHARCOAL"])
     else:
-        cor_grad = hex_rgb(COLORS["TIFFANY"])
+        cor_grad = _fundo(hex_rgb(COLORS["TIFFANY"]), 0.62)
 
     canvas = crop_foto(caminho_foto, overrides)
-    canvas = _degrade_inferior(
-        canvas,
-        altura_frac=0.52,
-        cor=cor_grad,
-        alpha_max=255,
-    )
 
+    # O degradê é aplicado DEPOIS de medir o texto, para ficar sólido
+    # exatamente a partir do topo do bloco (ver abaixo).
     draw = ImageDraw.Draw(canvas)
 
     x = 70
@@ -1148,6 +1177,15 @@ def render_hero(
     base_y = HEIGHT - reserva_logo
     topo_box = base_y - box_alt
     topo_head = topo_box - gap_head_box - alt_bloco_head
+
+    # Degradê sólido a partir de um pouco acima do headline: o texto
+    # branco fica sobre teal cheio (legível), com transição suave acima.
+    canvas = _degrade_hero(
+        canvas,
+        cor_grad,
+        y_solido=topo_head - 26,
+    )
+    draw = ImageDraw.Draw(canvas)
 
     if headline:
         desenhar_multilinha(
