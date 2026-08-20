@@ -1211,7 +1211,7 @@ def render_hero(
         canvas,
         cor_grad,
         y_solido=topo_head - 16,
-        fade=120,
+        fade=360,
     )
     draw = ImageDraw.Draw(canvas)
 
