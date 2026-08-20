@@ -926,6 +926,22 @@ def detectar_composicao(pedido):
     if any(
         termo in texto
         for termo in [
+            "gradiente",
+            "degrade",
+            "estilo capa",
+            "capa",
+            "hero",
+            "estilo hero",
+            "estilo tema",
+            "estilo rotina",
+            "caixa de apoio",
+        ]
+    ):
+        return "DYNAMIC_HERO"
+
+    if any(
+        termo in texto
+        for termo in [
             "dividido",
             "split",
             "bloco de cor",
@@ -1038,6 +1054,137 @@ def render_bold(
             emphasis=True,
             accent=tema["accent"],
         )
+
+    return canvas
+
+
+def render_hero(
+    caminho_foto,
+    copy,
+    pedido,
+    render_overrides=None,
+):
+    """
+    Composição "capa": foto full-bleed, degradê na cor da marca (teal por
+    padrão) subindo da base, headline centralizado (aceita **negrito** em
+    trechos) e o apoio dentro de uma caixa arredondada com borda.
+    """
+    overrides = render_overrides or {}
+
+    # Cor do degradê: TEAL (tiffany) por padrão — a identidade dessa
+    # composição. Coral/escuro só quando o usuário pedir explicitamente.
+    tema_nome = overrides.get("wave_theme")
+    if not tema_nome:
+        texto_pedido = _sem_acentos(pedido)
+        if any(t in texto_pedido for t in ["coral", "rosa", "vermelho"]):
+            tema_nome = "coral"
+        elif any(t in texto_pedido for t in ["escuro", "preto", "dark"]):
+            tema_nome = "escuro"
+        else:
+            tema_nome = "tiffany"
+
+    if tema_nome == "coral":
+        cor_grad = hex_rgb(COLORS["CORAL"])
+    elif tema_nome == "escuro":
+        cor_grad = hex_rgb(COLORS["CHARCOAL"])
+    else:
+        cor_grad = hex_rgb(COLORS["TIFFANY"])
+
+    canvas = crop_foto(caminho_foto, overrides)
+    canvas = _degrade_inferior(
+        canvas,
+        altura_frac=0.52,
+        cor=cor_grad,
+        alpha_max=255,
+    )
+
+    draw = ImageDraw.Draw(canvas)
+
+    x = 70
+    largura = WIDTH - 140
+
+    headline = copy.get("headline") or ""
+    apoio = copy.get("support") or ""
+
+    # -------- Apoio dentro de caixa (medido primeiro p/ ancorar) -----
+    apoio_size = _ajuste_fonte(24, overrides, "support_font_delta", 15)
+    font_apoio = fonte(apoio_size, "regular")
+    pad = 26
+    box_larg = largura
+    inner_larg = box_larg - pad * 2
+    linhas_apoio = quebrar(draw, apoio, font_apoio, inner_larg) if apoio else []
+    _, alt_linha = medir(draw, "Ay", font_apoio)
+    esp_apoio = 8
+    box_alt = (
+        pad * 2
+        + len(linhas_apoio) * alt_linha
+        + max(0, len(linhas_apoio) - 1) * esp_apoio
+        if linhas_apoio
+        else 0
+    )
+
+    # -------- Headline centralizado ---------------------------------
+    headline_size = _ajuste_fonte(40, overrides, "headline_font_delta", 26)
+    font_head = fonte(headline_size, "regular")
+    linhas_head = quebrar(
+        draw,
+        limpar_marcadores(headline),
+        font_head,
+        largura,
+    ) if headline else []
+    _, alt_head = medir(draw, "Ay", font_head)
+    esp_head = 8
+    alt_bloco_head = (
+        len(linhas_head) * alt_head
+        + max(0, len(linhas_head) - 1) * esp_head
+    )
+
+    # Ancora o conjunto (headline + caixa) na base.
+    gap_head_box = 34
+    base_y = HEIGHT - 70
+    topo_box = base_y - box_alt
+    topo_head = topo_box - gap_head_box - alt_bloco_head
+
+    if headline:
+        desenhar_multilinha(
+            draw,
+            headline,
+            x,
+            topo_head,
+            largura,
+            headline_size,
+            COLORS["WHITE"],
+            peso="regular",
+            espacamento=esp_head,
+            alinhamento="center",
+            max_linhas=4,
+        )
+
+    # Caixa de apoio com borda arredondada.
+    if linhas_apoio:
+        draw.rounded_rectangle(
+            (
+                x,
+                topo_box,
+                x + box_larg,
+                topo_box + box_alt,
+            ),
+            radius=20,
+            outline=(255, 255, 255, 235),
+            width=2,
+        )
+
+        ay = topo_box + pad
+        for linha in linhas_apoio:
+            lw, _ = medir(draw, linha, font_apoio)
+            lx = x + (box_larg - lw) / 2
+            draw.text(
+                (int(lx), int(ay)),
+                linha,
+                font=font_apoio,
+                fill=COLORS["WHITE"],
+            )
+            ay += alt_linha + esp_apoio
 
     return canvas
 
@@ -1183,14 +1330,22 @@ def render_dynamic(
         "DYNAMIC_WAVE",
         "DYNAMIC_BOLD",
         "DYNAMIC_SPLIT",
+        "DYNAMIC_HERO",
     }:
         composition = (
             "DYNAMIC_WAVE"
         )
 
-    if composition in {"DYNAMIC_BOLD", "DYNAMIC_SPLIT"}:
+    if composition in {"DYNAMIC_BOLD", "DYNAMIC_SPLIT", "DYNAMIC_HERO"}:
         if composition == "DYNAMIC_BOLD":
             canvas = render_bold(
+                caminho_foto,
+                copy,
+                pedido,
+                render_overrides=render_overrides,
+            )
+        elif composition == "DYNAMIC_HERO":
+            canvas = render_hero(
                 caminho_foto,
                 copy,
                 pedido,
