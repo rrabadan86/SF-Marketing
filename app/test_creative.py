@@ -142,6 +142,13 @@ def test_render_composicoes():
         assert img.size == (dl.WIDTH, dl.HEIGHT)
 
 
+def test_render_hero():
+    caminho = _foto_arquivo()
+    r = dl.render_dynamic(caminho, COPY, "estilo capa gradiente", foto={})
+    assert r["composition"] == "DYNAMIC_HERO"
+    assert Image.open(r["image_path"]).size == (dl.WIDTH, dl.HEIGHT)
+
+
 def test_render_wave_temas():
     caminho = _foto_arquivo()
     for tema in ("coral", "tiffany", "escuro"):
