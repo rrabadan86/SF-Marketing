@@ -218,6 +218,14 @@ def crop_foto(
     if overrides.get("avoid_head_crop"):
         fy = min(fy, 0.12)
 
+    # Nudge vertical relativo ("suba/desça a foto"): positivo mostra a
+    # parte de baixo da foto (sobe o assunto no quadro).
+    delta_fy = overrides.get("photo_focus_delta_y")
+    if delta_fy is not None:
+        fy = float(fy) + float(delta_fy)
+
+    fy = max(0.0, min(1.0, float(fy)))
+
     # Zoom real (antes ignorado): usa o mesmo motor do Seasonal.
     zoom = float(
         overrides.get("photo_zoom", 1.0)
@@ -1121,7 +1129,7 @@ def render_hero(
     elif tema_nome == "escuro":
         cor_grad = hex_rgb(COLORS["CHARCOAL"])
     else:
-        cor_grad = _fundo(hex_rgb(COLORS["TIFFANY"]), 0.62)
+        cor_grad = _fundo(hex_rgb(COLORS["TIFFANY"]), 0.74)
 
     canvas = crop_foto(caminho_foto, overrides)
 

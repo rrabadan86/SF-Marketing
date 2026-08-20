@@ -2018,16 +2018,7 @@ def render_promo(
             "photo_safe_focus_y"
         )
 
-        # Nudge vertical explícito ("suba/desça a foto") vence tudo,
-        # inclusive o anchor no topo do avoid_head_crop.
-        anchor_override = render_overrides.get(
-            "photo_anchor_y"
-        )
-
-        if anchor_override is not None:
-            focus_y_efetivo = float(anchor_override)
-
-        elif more_headroom or avoid_head_crop:
+        if more_headroom or avoid_head_crop:
             # "Não cortar a cabeça / testa": ancora no topo absoluto da
             # foto. Isso VENCE o photo_safe_focus_y — antes o safe focus
             # (0.12) sobrepunha a proteção da cabeça e ainda cortava a
@@ -2045,6 +2036,11 @@ def render_promo(
 
             if safe_focus_override is not None:
                 focus_y_efetivo = float(safe_focus_override)
+
+        # Nudge vertical relativo ("suba/desça a foto") aplicado por cima.
+        delta_focus = render_overrides.get("photo_focus_delta_y")
+        if delta_focus is not None:
+            focus_y_efetivo = focus_y_efetivo + float(delta_focus)
 
         focus_y_efetivo = limitar(
             focus_y_efetivo,
