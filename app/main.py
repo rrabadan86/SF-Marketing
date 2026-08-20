@@ -2280,40 +2280,40 @@ def detectar_ajustes_visuais_cirurgicos(
             )
 
     # Nudge vertical explícito: "suba/desça a foto", "mais para cima/baixo".
-    # Define uma âncora vertical (photo_anchor_y) que VENCE o anchor do
-    # avoid_head_crop no renderer. Maior = assunto sobe (mostra menos fundo
-    # acima da cabeça); menor = assunto desce.
+    # Vira um delta RELATIVO (photo_focus_delta_y) aplicado sobre o foco
+    # atual em qualquer renderer.
     if not preservar_enquadramento:
-        subir_foto = any(
-            termo in texto
-            for termo in [
-                "suba a foto",
-                "sobe a foto",
-                "subir a foto",
-                "foto mais para cima",
-                "mais para cima",
-                "foto para cima",
-                "levante a foto",
-                "puxe a foto para cima",
-                "cabeca mais para cima",
-                "cabeça mais para cima",
-                "cabeca no topo",
-                "cabeça no topo",
-            ]
+        # Detecção flexível: verbo de subir + "foto/imagem" em qualquer
+        # posição ("suba um pouco a foto"), ou frases diretas de direção.
+        tem_foto = "foto" in texto or "imagem" in texto
+        subir_foto = (
+            any(t in texto for t in ["para cima", "pra cima", "mais alto"])
+            or (
+                tem_foto
+                and any(
+                    t in texto
+                    for t in [
+                        "suba", "sobe", "subir",
+                        "levante", "levanta", "levantar",
+                        "puxe para cima", "mais em cima",
+                    ]
+                )
+            )
         )
 
-        descer_foto = any(
-            termo in texto
-            for termo in [
-                "abaixe a foto",
-                "abaixar a foto",
-                "desca a foto",
-                "descer a foto",
-                "desce a foto",
-                "foto mais para baixo",
-                "mais para baixo",
-                "foto para baixo",
-            ]
+        descer_foto = (
+            any(t in texto for t in ["para baixo", "pra baixo", "mais baixo"])
+            or (
+                tem_foto
+                and any(
+                    t in texto
+                    for t in [
+                        "abaixe", "abaixa", "abaixar",
+                        "desca", "desça", "desce", "descer",
+                        "baixe", "mais embaixo",
+                    ]
+                )
+            )
         )
 
         forte_nudge = any(
@@ -2325,12 +2325,17 @@ def detectar_ajustes_visuais_cirurgicos(
             ]
         )
 
+        # Delta RELATIVO ao foco atual (funciona em qualquer composição).
+        # Positivo = mostra a parte de baixo da foto / sobe o assunto no
+        # quadro; negativo = mostra mais o topo.
         if subir_foto:
-            ajustes["photo_anchor_y"] = (
-                0.26 if forte_nudge else 0.15
+            ajustes["photo_focus_delta_y"] = (
+                0.22 if forte_nudge else 0.13
             )
         elif descer_foto:
-            ajustes["photo_anchor_y"] = 0.0
+            ajustes["photo_focus_delta_y"] = (
+                -0.22 if forte_nudge else -0.13
+            )
 
     if (
         not preservar_enquadramento
