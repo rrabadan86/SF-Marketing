@@ -1142,7 +1142,9 @@ def render_hero(
     # Ancora o conjunto (headline + caixa) na base, deixando o rodapé
     # livre para o logo (inferior_direito) — sem colisão com a caixa.
     gap_head_box = 34
-    reserva_logo = 150
+    # Rodapé reservado para o logo (inferior_direito). O logo tem ~0.18 da
+    # largura e a arte é alta; 220px garante folga sem colisão com a caixa.
+    reserva_logo = 220
     base_y = HEIGHT - reserva_logo
     topo_box = base_y - box_alt
     topo_head = topo_box - gap_head_box - alt_bloco_head
