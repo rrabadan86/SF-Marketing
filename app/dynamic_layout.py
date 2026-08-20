@@ -1147,7 +1147,7 @@ def render_hero(
     elif tema_nome == "escuro":
         cor_grad = hex_rgb(COLORS["CHARCOAL"])
     else:
-        cor_grad = _fundo(hex_rgb(COLORS["TIFFANY"]), 0.9)
+        cor_grad = hex_rgb(COLORS["TIFFANY"])
 
     canvas = crop_foto(caminho_foto, overrides)
 
