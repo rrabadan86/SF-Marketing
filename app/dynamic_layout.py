@@ -1178,7 +1178,7 @@ def render_hero(
 
     # Ancora o conjunto (headline + caixa) na base, deixando o rodapé
     # livre para o logo (inferior_direito) — sem colisão com a caixa.
-    gap_head_box = 34
+    gap_head_box = 22
     # Rodapé reservado para o logo (inferior_direito). O logo tem ~0.18 da
     # largura e a arte é alta; 220px garante folga sem colisão com a caixa.
     reserva_logo = 220
@@ -1186,12 +1186,14 @@ def render_hero(
     topo_box = base_y - box_alt
     topo_head = topo_box - gap_head_box - alt_bloco_head
 
-    # Degradê sólido a partir de um pouco acima do headline: o texto
-    # branco fica sobre teal cheio (legível), com transição suave acima.
+    # Degradê CURTO: transição suave de ~120px logo acima do texto, para
+    # revelar o máximo da foto (a faixa teal fica fina). O texto ainda cai
+    # sobre teal cheio e legível.
     canvas = _degrade_hero(
         canvas,
         cor_grad,
-        y_solido=topo_head - 26,
+        y_solido=topo_head - 16,
+        fade=120,
     )
     draw = ImageDraw.Draw(canvas)
 
