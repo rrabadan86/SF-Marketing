@@ -2901,14 +2901,14 @@ def detectar_copy_obrigatoria_criar(
     """
     Detecta pedidos como:
 
-    A copy deve ser: TEXTO...
+    A copy deve ser: HEADLINE. Apoio: SUPPORT...
     A copy é: TEXTO...
     Use exatamente esta copy: TEXTO...
 
-    Retorna somente o texto que deve ser renderizado como
-    texto de apoio. Instruções visuais posteriores são
-    removidas quando aparecem em nova linha ou após marcadores
-    claramente visuais.
+    Retorna um dict {"headline"?, "support"} com o texto EXATO a
+    renderizar. Separa headline/apoio pelo marcador "Apoio:" e descarta
+    instruções de foto/layout que venham depois ("Procure foto...",
+    "com no mínimo N mulheres", etc.).
     """
 
     if not pedido:
@@ -2946,45 +2946,58 @@ def detectar_copy_obrigatoria_criar(
         inicio:
     ].strip()
 
-    # Cortes seguros para instruções visuais que vêm depois
-    # da copy. Priorizamos quebras de linha e frases claramente
-    # imperativas de layout.
+    # Cortes de instruções que NÃO são copy (seleção de foto, layout,
+    # requisitos) — em nova linha ou inline.
     cortes = [
         r"\n\s*(?:reduza|reduzir|aumente|aumentar|"
         r"mantenha|manter|use|utilize|deixe|deixar|"
         r"fundo|layout|composição|composicao|"
         r"foto|imagem|cores?|paleta)\b",
 
-        r"\s+(?=(?:reduza|reduzir)\s+as?\s+áreas?\s+vazias?)",
+        # Instruções de FOTO inline (a dor do teste real).
+        r"\s+(?=(?:procure|procurar|busque|buscar|escolha|escolher|"
+        r"use|usar|utilize|prefira|selecione)\s+(?:uma?\s+)?fotos?\b)",
+        r"\s+(?=(?:com|de)\s+(?:no\s+m[ií]nimo|pelo\s+menos|no\s+m[áa]ximo)\b)",
+        r"\s+(?=fotos?\s+com\b)",
 
+        r"\s+(?=(?:reduza|reduzir)\s+as?\s+áreas?\s+vazias?)",
         r"\s+(?=(?:mantenha|manter)\s+a\s+identidade\b)",
     ]
 
-    fim = len(
-        restante
-    )
-
+    fim = len(restante)
     for padrao in cortes:
         match = re.search(
             padrao,
             restante,
             flags=re.IGNORECASE,
         )
-
         if match:
-            fim = min(
-                fim,
-                match.start(),
-            )
+            fim = min(fim, match.start())
 
-    copy_texto = restante[
-        :fim
-    ].strip()
+    copy_texto = restante[:fim].strip()
 
     if not copy_texto:
         return None
 
-    return copy_texto
+    # Separa headline / apoio pelo marcador "Apoio:" (ou "Apoio -").
+    match_apoio = re.search(
+        r"\s*\bapoio\s*[:\-]\s*",
+        copy_texto,
+        flags=re.IGNORECASE,
+    )
+
+    if match_apoio:
+        headline = copy_texto[:match_apoio.start()].strip(" .-")
+        support = copy_texto[match_apoio.end():].strip()
+        resultado = {}
+        if headline:
+            resultado["headline"] = headline
+        if support:
+            resultado["support"] = support
+        return resultado or None
+
+    # Sem "Apoio:": mantém o comportamento antigo (vira texto de apoio).
+    return {"support": copy_texto}
 
 
 def pedido_sem_copy_obrigatoria(
@@ -4032,9 +4045,7 @@ while True:
                     )
 
                     copy_override_criar = (
-                        {
-                            "support": copy_obrigatoria
-                        }
+                        dict(copy_obrigatoria)
                         if copy_obrigatoria
                         else None
                     )
@@ -4106,9 +4117,7 @@ while True:
                     )
 
                     copy_override_criar = (
-                        {
-                            "support": copy_obrigatoria
-                        }
+                        dict(copy_obrigatoria)
                         if copy_obrigatoria
                         else None
                     )
@@ -4167,9 +4176,7 @@ while True:
                     )
 
                     copy_override_criar = (
-                        {
-                            "support": copy_obrigatoria
-                        }
+                        dict(copy_obrigatoria)
                         if copy_obrigatoria
                         else None
                     )
@@ -4406,7 +4413,7 @@ while True:
                     copy_override_criar = {}
 
                     if copy_obrigatoria:
-                        copy_override_criar["support"] = (
+                        copy_override_criar.update(
                             copy_obrigatoria
                         )
 

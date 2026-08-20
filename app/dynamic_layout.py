@@ -1112,9 +1112,27 @@ def render_hero(
     tema_nome = overrides.get("wave_theme")
     if not tema_nome:
         texto_pedido = _sem_acentos(pedido)
-        if any(t in texto_pedido for t in ["coral", "rosa", "vermelho"]):
+        # Só troca o FUNDO quando o pedido fala do fundo/tema/degradê
+        # explicitamente — não quando "escuro/coral" aparece descrevendo a
+        # FOTO (ex.: "piso escuro embaixo").
+        pede_fundo_coral = any(
+            t in texto_pedido
+            for t in [
+                "fundo coral", "fundo rosa", "fundo vermelho",
+                "tema coral", "degrade coral", "capa coral", "em coral",
+            ]
+        )
+        pede_fundo_escuro = any(
+            t in texto_pedido
+            for t in [
+                "fundo escuro", "fundo preto", "fundo dark",
+                "fundo grafite", "tema escuro", "degrade escuro",
+                "capa escura", "capa preta",
+            ]
+        )
+        if pede_fundo_coral:
             tema_nome = "coral"
-        elif any(t in texto_pedido for t in ["escuro", "preto", "dark"]):
+        elif pede_fundo_escuro:
             tema_nome = "escuro"
         else:
             tema_nome = "tiffany"
