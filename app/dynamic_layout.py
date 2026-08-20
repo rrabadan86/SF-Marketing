@@ -1139,9 +1139,11 @@ def render_hero(
         + max(0, len(linhas_head) - 1) * esp_head
     )
 
-    # Ancora o conjunto (headline + caixa) na base.
+    # Ancora o conjunto (headline + caixa) na base, deixando o rodapé
+    # livre para o logo (inferior_direito) — sem colisão com a caixa.
     gap_head_box = 34
-    base_y = HEIGHT - 70
+    reserva_logo = 150
+    base_y = HEIGHT - reserva_logo
     topo_box = base_y - box_alt
     topo_head = topo_box - gap_head_box - alt_bloco_head
 
